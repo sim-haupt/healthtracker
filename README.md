@@ -217,3 +217,16 @@ Apply `supabase/migrations/202609120008_episodes.sql` after the Documents migrat
 Episodes appear in profile overviews (active first, up to four) and Timeline, with an episodes-only option. Timeline places them on their start date. Event type, provider, category, and tag filters match related events; text search matches the episode title and description. No medical conclusions or recovery dates are inferred.
 
 Authenticated REST endpoints: `GET/POST /api/v1/episodes`, `GET/PUT/DELETE /api/v1/episodes/:id`. Listing accepts optional `profile_id`. Writes accept `title`, `profile_id`, `start_date`, nullable `end_date`, `status`, `description`, and `event_ids` (up to 500). Saving fields and event links is atomic. RLS and composite foreign keys prevent cross-account and cross-profile links. An event linked to an episode cannot change profile until it is unlinked.
+
+## Temporary local demo
+
+With Node 22 or later, run `npm run demo` from the repository root, then open **http://localhost:3001**.
+
+- Email: `demo@example.com`
+- Password: `Local-Health-2026!`
+
+The demo runs entirely on loopback interfaces (ports 3001, 4000, and 54321). Stop any existing API on port 4000 before starting it. It creates synthetic Alex and Sam profiles, recent/upcoming events, two episodes, a vaccination with a future dose date, a provider, and a sample document. All data and uploaded files exist in memory and disappear when the runner stops. Restarting creates a fresh demo; sign in again if an old session remains.
+
+This is a local Supabase-compatible test adapter, not a hosted Supabase account or a full Supabase installation. It runs the actual PostgreSQL migrations and RLS policies in PGlite and the existing Express API. It does not validate hosted Supabase Auth, Storage, or deployment behavior. No production authentication checks are disabled, no environment files are changed, and the runner refuses to start with `NODE_ENV=production`.
+
+Run `npm run demo:check` to verify the seeded overview, episodes, and documents without opening any ports. The local runner and temporary credentials are never imported by production code.

@@ -8,6 +8,8 @@
     "node": ">=22"
   },
   "scripts": {
+    "demo": "tsx scripts/local-demo.mts",
+    "demo:check": "tsx scripts/local-demo.mts --check",
     "dev": "concurrently -n web,api -c cyan,green \"npm run dev -w @healthtracker/web\" \"npm run dev -w @healthtracker/api\"",
     "build": "npm run build --workspaces",
     "typecheck": "npm run typecheck --workspaces",
