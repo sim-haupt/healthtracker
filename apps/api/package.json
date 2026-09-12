@@ -1,0 +1,31 @@
+{
+  "name": "@healthtracker/api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/*.test.ts"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "cors": "^2.8.5",
+    "helmet": "^8.1.0",
+    "express-rate-limit": "^8.1.0",
+    "dotenv": "^17.2.0",
+    "zod": "^4.1.0",
+    "@supabase/supabase-js": "^2.57.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "tsx": "^4.20.0",
+    "@types/node": "^22.18.0",
+    "@types/express": "^5.0.3",
+    "@types/cors": "^2.8.19",
+    "supertest": "^7.1.4",
+    "@types/supertest": "^6.0.3"
+  }
+}

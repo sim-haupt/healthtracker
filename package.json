@@ -1,0 +1,24 @@
+{
+  "name": "healthtracker",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -n web,api -c cyan,green \"npm run dev -w @healthtracker/web\" \"npm run dev -w @healthtracker/api\"",
+    "build": "npm run build --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "npm run test -w @healthtracker/api && npm run test:db",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test:db": "node --test supabase/tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "concurrently": "^9.2.1",
+    "prettier": "^3.9.6"
+  }
+}
