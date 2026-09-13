@@ -28,6 +28,14 @@ export const providerSchema = z
         return false;
       }
     }, "Use a complete http:// or https:// website address."),
+    rating: z
+      .number()
+      .int()
+      .min(1)
+      .max(5)
+      .nullable()
+      .optional()
+      .transform((value) => value ?? null),
     notes: optional(5000),
   })
   .strict();
@@ -44,6 +52,7 @@ export type ProviderDataAccess = {
   providerEvents: (
     id: string,
     page: number,
+    profileId?: string,
   ) => Promise<{ events: HealthEvent[]; total: number }>;
 };
 export function providerRouter() {
@@ -72,21 +81,26 @@ export function providerRouter() {
   router.get("/:id/events", async (req, res) => {
     const id = String(req.params.id),
       data = res.locals.data as UserDataAccess;
-    const page = z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(100000)
-      .safeParse(req.query.page ?? 1);
-    if (!page.success) throw new EventDataError(400, "Invalid page.");
+    const query = z
+      .object({
+        page: z.coerce.number().int().min(1).max(100000).default(1),
+        profile_id: z.uuid().optional(),
+      })
+      .strict()
+      .safeParse(req.query);
+    if (!query.success) throw new EventDataError(400, "Invalid filters.");
     if (!(await data.getProvider(id)))
       throw new EventDataError(
         404,
         "Provider not found or no longer available.",
       );
     res.json({
-      ...(await data.providerEvents(id, page.data)),
-      page: page.data,
+      ...(await data.providerEvents(
+        id,
+        query.data.page,
+        query.data.profile_id,
+      )),
+      page: query.data.page,
       page_size: 30,
     });
   });

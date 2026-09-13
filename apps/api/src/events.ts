@@ -51,7 +51,7 @@ export const eventInputSchema = z
       .optional()
       .default([])
       .transform((ids) => [...new Set(ids)]),
-    event_type: z.enum(eventTypes, { error: "Choose a supported event type." }),
+    event_type: z.union([z.enum(eventTypes), z.uuid()]),
     title: z
       .string()
       .trim()
@@ -117,7 +117,7 @@ export type EventSummary = Pick<
 export const listSchema = z
   .object({
     profile_id: z.uuid().optional(),
-    event_type: z.enum(eventTypes).optional(),
+    event_type: z.union([z.enum(eventTypes), z.uuid()]).optional(),
     category_id: z.uuid().optional(),
     provider_id: z.uuid().optional(),
     tag_ids: z

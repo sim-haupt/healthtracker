@@ -1,4 +1,5 @@
-import { EventList } from "@/components/events/event-list";
+import { redirect } from "next/navigation";
+
 export default function Page() {
-  return <EventList />;
+  redirect("/timeline");
 }

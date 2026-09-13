@@ -9,8 +9,9 @@ import { useProfiles } from "./app-shell";
 import { useTrackerResults } from "./tracker/use-results";
 import { EventRows } from "./tracker/event-rows";
 import type { DashboardResult } from "@/lib/tracker";
+import { formatDate } from "@/lib/date-format";
 export function Dashboard() {
-  const { profiles, activeProfile, setActiveProfile } = useProfiles();
+  const { profiles, activeProfile } = useProfiles();
   const query = activeProfile ? { profile_id: activeProfile.id } : {};
   const { data, error, retry } = useTrackerResults<DashboardResult>(
     "/api/v1/events/dashboard",
@@ -50,12 +51,8 @@ export function Dashboard() {
                       "Health profile"}
                   </h2>
                 </div>
-                <Link
-                  href="/events"
-                  onClick={() => setActiveProfile(group.profile_id)}
-                  className="text-link"
-                >
-                  View events
+                <Link href="/timeline" className="text-link">
+                  View timeline
                 </Link>
               </header>
               {!!group.vaccination_doses?.length && (
@@ -70,11 +67,7 @@ export function Dashboard() {
                           <span>
                             Next recommended dose ·{" "}
                             <time dateTime={dose.date}>
-                              {new Date(
-                                dose.date + "T12:00:00",
-                              ).toLocaleDateString(undefined, {
-                                dateStyle: "medium",
-                              })}
+                              {formatDate(dose.date)}
                             </time>
                           </span>
                         </Link>

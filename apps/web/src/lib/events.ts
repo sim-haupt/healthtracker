@@ -1,4 +1,5 @@
 import { parseDay } from "./tracker";
+import { formatDateTime } from "./date-format";
 export const eventTypes = [
   "Doctor Visit",
   "Illness",
@@ -9,7 +10,7 @@ export const eventTypes = [
   "Symptom",
   "Other",
 ] as const;
-export type EventType = (typeof eventTypes)[number];
+export type EventType = string;
 export type DetailField =
   | "description"
   | "symptoms"
@@ -130,10 +131,7 @@ export function localDateTime(iso: string) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 export function dateLabel(value: string) {
-  return new Date(value).toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  return formatDateTime(value);
 }
 export type EventDraft = Record<
   Exclude<keyof EventInput, "tag_ids">,
@@ -180,7 +178,7 @@ export function validateDraft(
   if (draft.tag_ids.length > 20) errors.tag_ids = "Choose up to 20 tags.";
   if (!profileIds.includes(draft.profile_id))
     errors.profile_id = "Choose a health profile.";
-  if (!eventTypes.includes(draft.event_type as EventType))
+  if (!draft.event_type || draft.event_type.length > 100)
     errors.event_type = "Choose an event type.";
   if (!draft.title.trim()) errors.title = "Enter a title.";
   else if (draft.title.trim().length > 300)

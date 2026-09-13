@@ -13,12 +13,11 @@ const Context = createContext<{
   filters: TrackerFilters;
   setFilters: Dispatch<SetStateAction<TrackerFilters>>;
   search: string;
-  categories: Label[];
   tags: Label[];
   labelError: string;
   labelsLoading: boolean;
   reloadLabels: () => void;
-  createLabel: (kind: "categories" | "tags", name: string) => Promise<Label>;
+  createTag: (name: string) => Promise<Label>;
 } | null>(null);
 export function useTracker() {
   const value = useContext(Context);
@@ -28,8 +27,7 @@ export function useTracker() {
 export function TrackerProvider({ children }: { children: React.ReactNode }) {
   const [filters, setFilters] = useState<TrackerFilters>(emptyFilters);
   const [search, setSearch] = useState("");
-  const [categories, setCategories] = useState<Label[]>([]),
-    [tags, setTags] = useState<Label[]>([]);
+  const [tags, setTags] = useState<Label[]>([]);
   const [labelError, setLabelError] = useState(""),
     [labelsLoading, setLabelsLoading] = useState(true),
     [revision, setRevision] = useState(0);
@@ -41,37 +39,28 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
     const controller = new AbortController();
     setLabelsLoading(true);
     setLabelError("");
-    Promise.all([
-      apiFetch<{ labels: Label[] }>("/api/v1/categories", controller.signal),
-      apiFetch<{ labels: Label[] }>("/api/v1/tags", controller.signal),
-    ])
-      .then(([c, t]) => {
+    apiFetch<{ labels: Label[] }>("/api/v1/tags", controller.signal)
+      .then((result) => {
         if (!controller.signal.aborted) {
-          setCategories(c.labels);
-          setTags(t.labels);
+          setTags(result.labels);
         }
       })
-      .catch((error) => {
+      .catch(() => {
         if (!controller.signal.aborted)
-          setLabelError(
-            error instanceof Error
-              ? error.message
-              : "Unable to load categories and tags.",
-          );
+          setLabelError("Tags couldn’t be loaded.");
       })
       .finally(() => {
         if (!controller.signal.aborted) setLabelsLoading(false);
       });
     return () => controller.abort();
   }, [revision]);
-  async function createLabel(kind: "categories" | "tags", name: string) {
+  async function createTag(name: string) {
     const { label } = await apiFetch<{ label: Label }>(
-      `/api/v1/${kind}`,
+      "/api/v1/tags",
       undefined,
       { method: "POST", body: { name } },
     );
-    const update = kind === "tags" ? setTags : setCategories;
-    update((items) =>
+    setTags((items) =>
       [...items.filter((item) => item.id !== label.id), label].sort((a, b) =>
         a.name.localeCompare(b.name),
       ),
@@ -84,12 +73,11 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         filters,
         setFilters,
         search,
-        categories,
         tags,
         labelError,
         labelsLoading,
         reloadLabels: () => setRevision((n) => n + 1),
-        createLabel,
+        createTag,
       }}
     >
       {children}

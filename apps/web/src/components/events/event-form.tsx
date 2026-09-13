@@ -1,4 +1,5 @@
 "use client";
+import { useEventTypes } from "../event-types";
 import Link from "next/link";
 import { useProviders } from "../providers-context";
 import { useToast, ConfirmDialog } from "../ui/feedback";
@@ -7,7 +8,6 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowLeft, Save } from "lucide-react";
 import { apiFetch, ApiError } from "@/lib/api";
 import {
-  eventTypes,
   detailFields,
   fieldsForType,
   fieldLabel,
@@ -20,8 +20,24 @@ import {
   type EventDraft,
 } from "@/lib/events";
 import { useProfiles } from "../app-shell";
+import { ProfileIdentity } from "../ui/profile-avatar";
 import { EventLabelEditor } from "../tracker/event-label-editor";
 import { useEvent } from "./use-event";
+import {
+  PendingDocumentPicker,
+  uploadPendingDocument,
+  type PendingDocument,
+} from "./pending-document";
+import { formatDate } from "@/lib/date-format";
+import { CustomSelect, DatePicker } from "../ui/pickers";
+
+type EpisodeOption = {
+  id: string;
+  title: string;
+  status: "active" | "resolved";
+  start_date: string;
+  end_date: string | null;
+};
 export function EditEvent({ id }: { id: string }) {
   const { event, error, retry } = useEvent(id);
   if (error)
@@ -31,8 +47,8 @@ export function EditEvent({ id }: { id: string }) {
         <button className="button secondary-button" onClick={retry}>
           Try again
         </button>
-        <Link className="text-link" href="/events">
-          Back to events
+        <Link className="text-link" href="/timeline">
+          Back to timeline
         </Link>
       </section>
     );
@@ -53,10 +69,11 @@ export function EventForm({
   initialDate?: string;
   initialType?: EventType;
 }) {
-  const { profiles, activeProfile, setActiveProfile } = useProfiles();
+  const { profiles, activeProfile } = useProfiles();
   const router = useRouter();
   const toast = useToast();
   const doctors = useProviders();
+  const typeOptions = useEventTypes();
   const [discard, setDiscard] = useState(false);
   const [draft, setDraft] = useState<EventDraft>(() => ({
     ...eventDraft(event, activeProfile?.id ?? profiles[0]?.id, initialDate),
@@ -67,7 +84,13 @@ export function EventForm({
   const [busy, setBusy] = useState(false);
   const [labelBusy, setLabelBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [pendingDocument, setPendingDocument] =
+    useState<PendingDocument | null>(null);
+  const [episodeId, setEpisodeId] = useState("");
+  const [episodeOptions, setEpisodeOptions] = useState<EpisodeOption[]>([]);
+  const [episodesLoading, setEpisodesLoading] = useState(true);
+  const [episodeError, setEpisodeError] = useState("");
+  const [episodeAttempt, setEpisodeAttempt] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
   const type = draft.event_type as EventType;
   const primary = fieldsForType(type);
@@ -82,6 +105,32 @@ export function EventForm({
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+  useEffect(() => {
+    if (!draft.profile_id) return;
+    const controller = new AbortController();
+    setEpisodesLoading(true);
+    setEpisodeError("");
+    apiFetch<{ episodes: EpisodeOption[] }>(
+      `/api/v1/episodes?profile_id=${draft.profile_id}`,
+      controller.signal,
+    )
+      .then(({ episodes }) => {
+        setEpisodeOptions(episodes);
+        setEpisodeId((current) =>
+          episodes.some((episode) => episode.id === current) ? current : "",
+        );
+      })
+      .catch((cause) => {
+        if (!controller.signal.aborted)
+          setEpisodeError(
+            cause instanceof Error ? cause.message : "Unable to load episodes.",
+          );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setEpisodesLoading(false);
+      });
+    return () => controller.abort();
+  }, [draft.profile_id, episodeAttempt]);
   function update<K extends keyof EventDraft>(field: K, value: EventDraft[K]) {
     setDraft((previous) => ({ ...previous, [field]: value }));
     setDirty(true);
@@ -89,7 +138,6 @@ export function EventForm({
   }
   function highlight(fields: Record<string, string>) {
     setErrors(fields);
-    if (secondary.some((field) => fields[field])) setMoreOpen(true);
     requestAnimationFrame(() =>
       formRef.current
         ?.querySelector<HTMLElement>("[aria-invalid=true]")
@@ -103,6 +151,14 @@ export function EventForm({
       draft,
       profiles.map((profile) => profile.id),
     );
+    if (
+      !typeOptions.types.some(
+        (t) =>
+          t.key === draft.event_type &&
+          (!t.archived || event?.event_type === t.key),
+      )
+    )
+      issues.event_type = "Choose an available event type.";
     setError("");
     if (Object.keys(issues).length) {
       highlight(issues);
@@ -116,9 +172,37 @@ export function EventForm({
         undefined,
         { method: event ? "PUT" : "POST", body: draftInput(draft, event) },
       );
-      toast("Event saved.");
+      const failed: string[] = [];
+      if (episodeId) {
+        try {
+          await apiFetch(
+            `/api/v1/episodes/${episodeId}/events/${saved.id}`,
+            undefined,
+            { method: "POST" },
+          );
+        } catch {
+          failed.push("episode link");
+        }
+      }
+      if (pendingDocument) {
+        try {
+          await uploadPendingDocument(saved.id, pendingDocument);
+        } catch {
+          failed.push("document upload");
+        }
+      }
+      toast(
+        failed.length
+          ? `Event saved. ${failed.join(" and ")} failed; you can retry from the saved event or episode.`
+          : episodeId && pendingDocument
+            ? "Event linked to episode with document saved."
+            : episodeId
+              ? "Event linked to episode."
+              : pendingDocument
+                ? "Event and document saved."
+                : "Event saved.",
+      );
       setDirty(false);
-      setActiveProfile(saved.profile_id);
       router.push(`/events/${saved.id}`);
     } catch (cause) {
       if (cause instanceof ApiError)
@@ -140,7 +224,7 @@ export function EventForm({
   }
   function cancel() {
     if (dirty) setDiscard(true);
-    else router.push(event ? `/events/${event.id}` : "/events");
+    else router.push(event ? `/events/${event.id}` : "/timeline");
   }
   const feedback = (name: string) =>
     errors[name] ? (
@@ -184,7 +268,7 @@ export function EventForm({
   return (
     <>
       <button type="button" className="text-link event-back" onClick={cancel}>
-        <ArrowLeft size={16} /> {event ? "Back to event" : "Back to events"}
+        <ArrowLeft size={16} /> {event ? "Back to event" : "Back to timeline"}
       </button>
       <div className="page-heading">
         <div>
@@ -200,42 +284,115 @@ export function EventForm({
         <fieldset disabled={busy}>
           <legend className="sr-only">Health event details</legend>
           <div className="form-grid">
-            <div className="form-field">
-              <label htmlFor="profile_id">Health profile</label>
-              <select
-                {...fieldProps("profile_id")}
-                onChange={(e) => update("profile_id", e.target.value)}
-                required
+            <div className="form-field profile-choice-field">
+              <span className="field-label">Health profile</span>
+              <div
+                className="profile-choices"
+                role="radiogroup"
+                aria-label="Health profile"
               >
-                <option value="" disabled>
-                  Choose a profile
-                </option>
                 {profiles.map((profile) => (
-                  <option key={profile.id} value={profile.id}>
-                    {profile.name}
-                  </option>
+                  <label
+                    key={profile.id}
+                    className={
+                      draft.profile_id === profile.id ? "selected" : ""
+                    }
+                  >
+                    <input
+                      type="radio"
+                      name="profile_id"
+                      value={profile.id}
+                      checked={draft.profile_id === profile.id}
+                      onChange={(e) => {
+                        update("profile_id", e.target.value);
+                        setEpisodeId("");
+                      }}
+                      required
+                    />
+                    <ProfileIdentity
+                      name={profile.name}
+                      avatar={profile.avatar}
+                    />
+                  </label>
                 ))}
-              </select>
+              </div>
               {feedback("profile_id")}
             </div>
             <div className="form-field">
               <label htmlFor="event_type">Event type</label>
-              <select
-                {...fieldProps("event_type")}
-                onChange={(e) => update("event_type", e.target.value)}
-                required
-              >
-                {!eventTypes.includes(type) && (
-                  <option value="" disabled>
-                    Choose a type
-                  </option>
-                )}
-                {eventTypes.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </select>
+              <CustomSelect
+                id="event_type"
+                value={draft.event_type}
+                invalid={!!errors.event_type}
+                placeholder="Choose a type"
+                onChange={(value) => update("event_type", value)}
+                options={typeOptions.types
+                  .filter((t) => !t.archived || event?.event_type === t.key)
+                  .map((item) => ({
+                    value: item.key,
+                    label: `${item.name}${item.archived ? " (removed)" : ""}`,
+                  }))}
+              />
               {feedback("event_type")}
+              {typeOptions.error && (
+                <p role="alert">
+                  {typeOptions.error}{" "}
+                  <button
+                    type="button"
+                    className="text-link"
+                    onClick={typeOptions.reload}
+                  >
+                    Retry
+                  </button>
+                </p>
+              )}
             </div>
+          </div>
+          <div className="form-field">
+            <label htmlFor="episode_id">
+              {event ? "Link to episode" : "Health episode"}{" "}
+              <span>Optional</span>
+            </label>
+            <CustomSelect
+              id="episode_id"
+              value={episodeId}
+              disabled={episodesLoading}
+              onChange={(value) => {
+                setEpisodeId(value);
+                setDirty(true);
+              }}
+              options={[
+                {
+                  value: "",
+                  label: episodesLoading
+                    ? "Loading episodes…"
+                    : episodeOptions.length
+                      ? event
+                        ? "No new episode link"
+                        : "No episode"
+                      : "No episodes for this profile",
+                },
+                ...episodeOptions.map((episode) => ({
+                  value: episode.id,
+                  label: `${episode.title} · ${episode.status === "active" ? "Active" : "Resolved"} · ${formatDate(episode.start_date)}`,
+                })),
+              ]}
+            />
+            {event && episodeOptions.length > 0 && (
+              <p className="form-hint">Existing episode links are kept.</p>
+            )}
+            {episodeError && (
+              <p className="field-error" role="alert">
+                {episodeError}{" "}
+                <button
+                  type="button"
+                  className="text-link"
+                  onClick={() => setEpisodeAttempt((attempt) => attempt + 1)}
+                >
+                  Retry
+                </button>
+              </p>
+            )}
           </div>
           <div className="form-field">
             <label htmlFor="title">
@@ -258,12 +415,12 @@ export function EventForm({
                     ? "Start date and time"
                     : "Date and time"}
               </label>
-              <input
-                {...fieldProps("event_date")}
-                type="datetime-local"
-                step="1"
-                required
-                onChange={(e) => update("event_date", e.target.value)}
+              <DatePicker
+                id="event_date"
+                mode="datetime"
+                value={draft.event_date}
+                invalid={!!errors.event_date}
+                onChange={(value) => update("event_date", value)}
               />
               {feedback("event_date")}
             </div>
@@ -271,11 +428,14 @@ export function EventForm({
               <label htmlFor="end_date">
                 End date and time <span>Optional</span>
               </label>
-              <input
-                {...fieldProps("end_date")}
-                type="datetime-local"
-                step="1"
-                onChange={(e) => update("end_date", e.target.value)}
+              <DatePicker
+                id="end_date"
+                mode="datetime"
+                optional
+                value={draft.end_date}
+                invalid={!!errors.end_date}
+                min={draft.event_date.slice(0, 10)}
+                onChange={(value) => update("end_date", value)}
               />
               {feedback("end_date")}
             </div>
@@ -287,13 +447,12 @@ export function EventForm({
             <label htmlFor="provider_id">
               Saved doctor <span>Optional</span>
             </label>
-            <select
+            <CustomSelect
               id="provider_id"
               value={draft.provider_id ?? ""}
               disabled={doctors.loading}
-              aria-invalid={!!errors.provider_id}
-              onChange={(e) => {
-                const id = e.target.value;
+              invalid={!!errors.provider_id}
+              onChange={(id) => {
                 update("provider_id", id);
                 if (id)
                   update(
@@ -301,21 +460,23 @@ export function EventForm({
                     doctors.providers.find((p) => p.id === id)?.name ?? "",
                   );
               }}
-            >
-              <option value="">No saved doctor</option>
-              {draft.provider_id &&
-                !doctors.providers.some((p) => p.id === draft.provider_id) && (
-                  <option value={draft.provider_id}>
-                    Previously selected doctor
-                  </option>
-                )}
-              {doctors.providers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                  {p.specialty ? ` · ${p.specialty}` : ""}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: "No saved doctor" },
+                ...(draft.provider_id &&
+                !doctors.providers.some((p) => p.id === draft.provider_id)
+                  ? [
+                      {
+                        value: draft.provider_id,
+                        label: "Previously selected doctor",
+                      },
+                    ]
+                  : []),
+                ...doctors.providers.map((provider) => ({
+                  value: provider.id,
+                  label: `${provider.name}${provider.specialty ? ` · ${provider.specialty}` : ""}`,
+                })),
+              ]}
+            />
             {feedback("provider_id")}
             {doctors.error && (
               <p role="alert" className="field-error">
@@ -348,11 +509,12 @@ export function EventForm({
                 <label htmlFor="next_dose_date">
                   Next recommended dose <span>Optional</span>
                 </label>
-                <input
+                <DatePicker
                   id="next_dose_date"
-                  type="date"
+                  optional
                   value={draft.next_dose_date ?? ""}
-                  onChange={(e) => update("next_dose_date", e.target.value)}
+                  invalid={!!errors.next_dose_date}
+                  onChange={(value) => update("next_dose_date", value)}
                 />
                 {feedback("next_dose_date")}
                 <p className="muted">
@@ -362,24 +524,22 @@ export function EventForm({
             </div>
           )}
           <div className="event-fields" aria-live="polite">
-            {primary.map(detailField)}
+            {[...primary, ...secondary].map(detailField)}
           </div>
           <EventLabelEditor
             onBusyChange={setLabelBusy}
             fieldErrors={errors}
-            categoryId={draft.category_id}
             tagIds={draft.tag_ids}
-            onCategory={(id) => update("category_id", id)}
             onTags={(ids) => update("tag_ids", ids)}
           />
-          <details
-            className="event-more"
-            open={moreOpen}
-            onToggle={(e) => setMoreOpen(e.currentTarget.open)}
-          >
-            <summary>More details </summary>
-            <div className="event-fields">{secondary.map(detailField)}</div>
-          </details>
+          <PendingDocumentPicker
+            value={pendingDocument}
+            disabled={busy || labelBusy}
+            onChange={(value) => {
+              setPendingDocument(value);
+              setDirty(true);
+            }}
+          />
         </fieldset>
         {error && (
           <p role="alert" className="form-error event-error">
@@ -409,7 +569,7 @@ export function EventForm({
           busy={false}
           onClose={() => setDiscard(false)}
           onConfirm={() =>
-            router.push(event ? `/events/${event.id}` : "/events")
+            router.push(event ? `/events/${event.id}` : "/timeline")
           }
         />
       )}

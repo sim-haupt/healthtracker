@@ -29,8 +29,9 @@ test("episodes validate dates, status, ownership fields and event IDs", () => {
       false,
     );
 });
-test("episode CRUD requires approved authentication and handles missing rows", async () => {
-  let saved = false;
+test("episode CRUD and event linking require approved authentication", async () => {
+  let saved = false,
+    linked: string[] = [];
   const app = createApp({
     frontendOrigin: "http://localhost:3000",
     verifyToken: async (token) => (token === "good" ? { id } : null),
@@ -44,6 +45,10 @@ test("episode CRUD requires approved authentication and handles missing rows", a
       },
       getEpisode: async () => null,
       deleteEpisode: async () => true,
+      linkEventToEpisode: async (episodeId, eventId) => {
+        linked = [episodeId, eventId];
+        return true;
+      },
     }),
   });
   for (const method of ["get", "post", "put", "delete"] as const)
@@ -72,4 +77,10 @@ test("episode CRUD requires approved authentication and handles missing rows", a
     .delete(`/api/v1/episodes/${id}`)
     .set("Authorization", "Bearer good")
     .expect(204);
+  await request(app).post(`/api/v1/episodes/${id}/events/${id}`).expect(401);
+  await request(app)
+    .post(`/api/v1/episodes/${id}/events/${id}`)
+    .set("Authorization", "Bearer good")
+    .expect(204);
+  assert.deepEqual(linked, [id, id]);
 });

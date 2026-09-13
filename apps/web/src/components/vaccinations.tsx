@@ -1,11 +1,21 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { Syringe, Plus, Paperclip, ArrowUpRight } from "lucide-react";
+import {
+  Syringe,
+  Plus,
+  Paperclip,
+  ArrowUpRight,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useProfiles } from "./app-shell";
+import { useTracker } from "./tracker/context";
+import { TagFilterPills } from "./ui/labels";
+import { ProfileIdentity } from "./ui/profile-avatar";
 import { useTrackerResults, type EventResults } from "./tracker/use-results";
 import { LoadingState, ErrorState } from "./ui/feedback";
 import { dateLabel } from "@/lib/events";
+import { formatDate } from "@/lib/date-format";
 function History({ query }: { query: Record<string, unknown> }) {
   const [page, setPage] = useState(1);
   const { profiles } = useProfiles();
@@ -41,10 +51,14 @@ function History({ query }: { query: Record<string, unknown> }) {
               <Syringe size={23} />
             </span>
             <div>
-              <p className="eyebrow">
-                {profiles.find((p) => p.id === event.profile_id)?.name ??
-                  "Health profile"}
-              </p>
+              <ProfileIdentity
+                className="eyebrow"
+                name={
+                  profiles.find((p) => p.id === event.profile_id)?.name ??
+                  "Health profile"
+                }
+                avatar={profiles.find((p) => p.id === event.profile_id)?.avatar}
+              />
               <Link href={`/events/${event.id}`}>
                 <h2>
                   {event.title}
@@ -62,9 +76,7 @@ function History({ query }: { query: Record<string, unknown> }) {
                 <p className="vaccination-next">
                   Next recommended dose:{" "}
                   <time dateTime={event.next_dose_date}>
-                    {new Date(
-                      event.next_dose_date + "T12:00:00",
-                    ).toLocaleDateString(undefined, { dateStyle: "medium" })}
+                    {formatDate(event.next_dose_date)}
                   </time>
                 </p>
               )}
@@ -104,8 +116,13 @@ function History({ query }: { query: Record<string, unknown> }) {
   );
 }
 export function Vaccinations() {
-  const { profiles, activeProfile, setActiveProfile } = useProfiles();
-  const query = activeProfile ? { profile_id: activeProfile.id } : {};
+  const { activeProfile } = useProfiles();
+  const { tags, labelsLoading, labelError, reloadLabels } = useTracker();
+  const [tagIds, setTagIds] = useState<string[]>([]);
+  const query: Record<string, unknown> = {};
+  if (activeProfile) query.profile_id = activeProfile.id;
+  if (tagIds.length) query.tag_ids = tagIds;
+  const count = tagIds.length;
   return (
     <>
       <div className="page-heading">
@@ -117,22 +134,45 @@ export function Vaccinations() {
           Record vaccination
         </Link>
       </div>
-      <section className="card vaccination-intro">
-        <div className="filter-select">
-          <label htmlFor="vaccination-profile">Health profile</label>
-          <select
-            id="vaccination-profile"
-            value={activeProfile?.id ?? ""}
-            onChange={(e) => setActiveProfile(e.target.value)}
+      <section
+        className="card tracker-filters"
+        aria-label="Filter vaccinations"
+      >
+        <div className="filter-footer vaccination-filter-footer">
+          <details className="filter-details">
+            <summary>
+              <SlidersHorizontal size={16} /> Filters{" "}
+              {count > 0 && <span className="filter-count">{count}</span>}
+            </summary>
+            <div className="advanced-filters">
+              <TagFilterPills
+                legend="Tags"
+                items={tags}
+                selected={tagIds}
+                onChange={(ids) => setTagIds(ids.slice(0, 20))}
+                emptyText={labelsLoading ? undefined : "No tags are available."}
+              />
+            </div>
+          </details>
+          <button
+            type="button"
+            className="text-link"
+            disabled={!count}
+            onClick={() => {
+              setTagIds([]);
+            }}
           >
-            <option value="">Both profiles</option>
-            {profiles.map((profile) => (
-              <option value={profile.id} key={profile.id}>
-                {profile.name}
-              </option>
-            ))}
-          </select>
+            Clear filters
+          </button>
         </div>
+        {labelError && (
+          <p className="field-error" role="alert">
+            {labelError}{" "}
+            <button className="text-link" onClick={reloadLabels}>
+              Retry
+            </button>
+          </p>
+        )}
       </section>
       <History key={JSON.stringify(query)} query={query} />
     </>

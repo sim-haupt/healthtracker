@@ -1,19 +1,13 @@
 "use client";
+import { EventTypeSettings } from "./event-types";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import {
-  Camera,
-  Check,
-  FolderHeart,
-  Tags,
-  Pencil,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { Camera, Check, Tags, Pencil, Plus, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { useProfiles, type HealthProfile } from "./app-shell";
 import { useTracker } from "./tracker/context";
 import { ProfileAvatar } from "./ui/profile-avatar";
+import { TagPill } from "./ui/labels";
 import {
   ConfirmDialog,
   LoadingState,
@@ -166,11 +160,13 @@ function ProfileEditor({
       {(file || profile.avatar) && !removeAvatar && (
         <button
           type="button"
-          className="text-link remove-photo"
+          className="icon-button danger-icon remove-photo"
+          aria-label={`Delete photo for ${profile.name}`}
+          title="Delete photo"
           disabled={busy}
           onClick={() => setConfirm(true)}
         >
-          Remove photo
+          <Trash2 size={16} aria-hidden="true" />
         </button>
       )}
       <div className="form-field">
@@ -216,16 +212,16 @@ function ProfileEditor({
     </form>
   );
 }
-function LabelManager({ kind }: { kind: "categories" | "tags" }) {
+function TagManager() {
   const tracker = useTracker(),
     toast = useToast();
-  const labels = kind === "tags" ? tracker.tags : tracker.categories;
+  const labels = tracker.tags;
   const [name, setName] = useState(""),
     [editing, setEditing] = useState<Label | null>(null),
     [pending, setPending] = useState<Label | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const singular = kind === "tags" ? "tag" : "category";
+  const singular = "tag";
   async function save(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
@@ -237,14 +233,12 @@ function LabelManager({ kind }: { kind: "categories" | "tags" }) {
     setError("");
     try {
       if (editing)
-        await apiFetch(`/api/v1/${kind}/${editing.id}`, undefined, {
+        await apiFetch(`/api/v1/tags/${editing.id}`, undefined, {
           method: "PUT",
           body: { name: name.trim() },
         });
-      else await tracker.createLabel(kind, name.trim());
-      toast(
-        `${kind === "tags" ? "Tag" : "Category"} ${editing ? "updated" : "created"}.`,
-      );
+      else await tracker.createTag(name.trim());
+      toast(`Tag ${editing ? "updated" : "created"}.`);
       setName("");
       setEditing(null);
       tracker.reloadLabels();
@@ -261,19 +255,12 @@ function LabelManager({ kind }: { kind: "categories" | "tags" }) {
     setBusy(true);
     setError("");
     try {
-      await apiFetch(`/api/v1/${kind}/${pending.id}`, undefined, {
+      await apiFetch(`/api/v1/tags/${pending.id}`, undefined, {
         method: "DELETE",
       });
       tracker.setFilters((filters) => ({
         ...filters,
-        category_id:
-          kind === "categories" && filters.category_id === pending.id
-            ? ""
-            : filters.category_id,
-        tag_ids:
-          kind === "tags"
-            ? filters.tag_ids.filter((id) => id !== pending.id)
-            : filters.tag_ids,
+        tag_ids: filters.tag_ids.filter((id) => id !== pending.id),
       }));
       if (editing?.id === pending.id) {
         setEditing(null);
@@ -281,7 +268,7 @@ function LabelManager({ kind }: { kind: "categories" | "tags" }) {
       }
       setPending(null);
       tracker.reloadLabels();
-      toast(`${kind === "tags" ? "Tag" : "Category"} deleted.`);
+      toast("Tag deleted.");
     } catch (cause) {
       setPending(null);
       setError(
@@ -295,26 +282,24 @@ function LabelManager({ kind }: { kind: "categories" | "tags" }) {
     <section className="card label-manager">
       <div className="settings-section-title">
         <span className="state-symbol">
-          {kind === "tags" ? <Tags size={22} /> : <FolderHeart size={22} />}
+          <Tags size={22} />
         </span>
         <div>
-          <h2>{kind === "tags" ? "Tags" : "Categories"}</h2>
+          <h2>Tags</h2>
         </div>
       </div>
       <form onSubmit={save}>
-        <label htmlFor={`label-${kind}`}>
+        <label htmlFor="label-tags">
           {editing ? `Rename “${editing.name}”` : `Add a ${singular}`}
         </label>
         <div className="inline-create">
           <input
-            id={`label-${kind}`}
+            id="label-tags"
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={100}
             required
-            placeholder={
-              kind === "tags" ? "e.g. annual checkup" : "e.g. Preventive care"
-            }
+            placeholder="e.g. annual checkup"
             disabled={busy}
           />
           <button
@@ -348,25 +333,25 @@ function LabelManager({ kind }: { kind: "categories" | "tags" }) {
         <ul className="settings-label-list">
           {labels.map((label) => (
             <li key={label.id}>
-              <span className={kind === "tags" ? "tag-pill" : "category-pill"}>
-                {label.name}
-              </span>
+              <TagPill name={label.name} />
               <div>
                 <button
                   className="icon-button"
                   aria-label={`Rename ${singular} ${label.name}`}
+                  title="Edit"
                   disabled={busy}
                   onClick={() => {
                     setEditing(label);
                     setName(label.name);
-                    document.getElementById(`label-${kind}`)?.focus();
+                    document.getElementById("label-tags")?.focus();
                   }}
                 >
                   <Pencil size={16} />
                 </button>
                 <button
-                  className="icon-button danger-text"
+                  className="icon-button danger-icon"
                   aria-label={`Delete ${singular} ${label.name}`}
+                  title="Delete"
                   disabled={busy}
                   onClick={() => setPending(label)}
                 >
@@ -380,7 +365,7 @@ function LabelManager({ kind }: { kind: "categories" | "tags" }) {
         <p className="label-empty">
           {tracker.labelsLoading
             ? "Loading your labels…"
-            : `No ${kind} yet. Add your first one above.`}
+            : "No tags yet. Add your first one above."}
         </p>
       )}
       {pending && (
@@ -413,15 +398,15 @@ export function SettingsPage() {
           <ProfileEditor key={profile.id} profile={profile} index={index} />
         ))}
       </div>
+      <EventTypeSettings />
       <div className="section-intro">
-        <h2>Labels</h2>
+        <h2>Tags</h2>
       </div>
       {tracker.labelError ? (
         <ErrorState message={tracker.labelError} retry={tracker.reloadLabels} />
       ) : (
         <div className="settings-grid" aria-busy={tracker.labelsLoading}>
-          <LabelManager kind="categories" />
-          <LabelManager kind="tags" />
+          <TagManager />
         </div>
       )}
     </>

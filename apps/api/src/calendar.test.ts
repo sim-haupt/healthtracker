@@ -11,6 +11,11 @@ import {
   emptyFilters,
 } from "../../web/src/lib/tracker.js";
 import { eventDraft, type EventSummary } from "../../web/src/lib/events.js";
+import {
+  formatDate,
+  formatDateTime,
+  ordinalDay,
+} from "../../web/src/lib/date-format.js";
 const event: EventSummary = {
   id: "one",
   profile_id: "p",
@@ -20,6 +25,14 @@ const event: EventSummary = {
   event_date: new Date(2026, 8, 10, 12).toISOString(),
   end_date: new Date(2026, 8, 13, 16).toISOString(),
 };
+test("display dates use consistent ordinal day, short month and year", () => {
+  assert.equal(formatDate("2026-09-27"), "27th Sep 2026");
+  assert.equal(formatDate("2026-09-01"), "1st Sep 2026");
+  assert.equal(ordinalDay(2), "2nd");
+  assert.equal(ordinalDay(3), "3rd");
+  assert.equal(ordinalDay(11), "11th");
+  assert.match(formatDateTime("2026-09-27T10:05:00"), /^27th Sep 2026, 10:05$/);
+});
 test("month grid covers six Monday-first weeks, leap days and year boundaries", () => {
   const leap = monthDays(new Date(2024, 1, 1));
   assert.equal(leap.length, 42);

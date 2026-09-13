@@ -1,4 +1,6 @@
 "use client";
+import { useEventTypes } from "../event-types";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
@@ -12,7 +14,9 @@ import {
 import { TrackerFiltersBar, useTrackerQuery } from "./filters";
 import { useTrackerResults, type EventResults } from "./use-results";
 import { EventRows } from "./event-rows";
+import { formatAccessibleDate, formatDate } from "@/lib/date-format";
 export function HealthCalendar() {
+  const typeOptions = useEventTypes();
   const [month, setMonth] = useState(
     () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   );
@@ -115,7 +119,7 @@ export function HealthCalendar() {
                     <button
                       className={`day-number ${key === dayKey(new Date()) ? "today" : ""}`}
                       aria-pressed={selected === key}
-                      aria-label={`${day.toLocaleDateString(undefined, { dateStyle: "full" })}, ${data ? events.length : "loading"} events`}
+                      aria-label={`${formatAccessibleDate(day)}, ${data ? events.length : "loading"} events`}
                       onClick={() => setSelected(key)}
                     >
                       {day.getDate()}
@@ -125,8 +129,16 @@ export function HealthCalendar() {
                         <Link
                           key={event.id}
                           className="calendar-event"
+                          style={
+                            {
+                              "--event-color":
+                                typeOptions.types.find(
+                                  (t) => t.key === event.event_type,
+                                )?.color ?? "#0C7779",
+                            } as CSSProperties
+                          }
                           href={`/events/${event.id}`}
-                          title={event.title}
+                          title={`${typeOptions.types.find((t) => t.key === event.event_type)?.name ?? event.event_type}: ${event.title}`}
                         >
                           {event.title}
                         </Link>
@@ -135,7 +147,7 @@ export function HealthCalendar() {
                     {events.length > 0 && (
                       <button
                         className="day-event-count"
-                        aria-label={`Show all ${events.length} events on ${day.toLocaleDateString()}`}
+                        aria-label={`Show all ${events.length} events on ${formatDate(day)}`}
                         onClick={() => setSelected(key)}
                       >
                         {events.length}{" "}
@@ -156,9 +168,7 @@ export function HealthCalendar() {
       </section>
       <section className="card selected-day-events">
         <header className="card-heading">
-          <h2>
-            {selectedDay.toLocaleDateString(undefined, { dateStyle: "long" })}
-          </h2>
+          <h2>{formatDate(selectedDay)}</h2>
           <Link className="text-link" href={`/events/new?date=${selected}`}>
             <Plus size={16} /> Add event
           </Link>

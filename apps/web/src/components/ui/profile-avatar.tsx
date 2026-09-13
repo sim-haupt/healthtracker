@@ -48,3 +48,38 @@ export function ProfileAvatar({
     </span>
   );
 }
+
+export function ProfileIdentity({
+  name,
+  avatar,
+  className = "",
+}: {
+  name: string;
+  avatar?: string | null;
+  className?: string;
+}) {
+  return (
+    <span className={`profile-identity ${className}`.trim()}>
+      <ProfileAvatar name={name} avatar={avatar} />
+      <span>{name}</span>
+    </span>
+  );
+}
+
+export function ProfileAvatarGroup({
+  profiles,
+}: {
+  profiles: { id: string; name: string; avatar?: string | null }[];
+}) {
+  return (
+    <span className="profile-avatar-group" aria-hidden="true">
+      {profiles.slice(0, 2).map((profile) => (
+        <ProfileAvatar
+          key={profile.id}
+          name={profile.name}
+          avatar={profile.avatar}
+        />
+      ))}
+    </span>
+  );
+}

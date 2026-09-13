@@ -1,4 +1,5 @@
 "use client";
+import { EventTypeBadge } from "../event-types";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -19,11 +20,13 @@ import {
 import { TrackerFiltersBar, useTrackerQuery } from "./filters";
 import { useTrackerResults } from "./use-results";
 import { useProfiles } from "../app-shell";
-import { ProfileAvatar } from "../ui/profile-avatar";
+import { ProfileIdentity } from "../ui/profile-avatar";
 import { LoadingState, ErrorState } from "../ui/feedback";
+import { TagPill } from "../ui/labels";
+import { formatAccessibleDate, ordinalDay } from "@/lib/date-format";
+import { CustomSelect } from "../ui/pickers";
 import {
   groupTimeline,
-  timelineYearQuery,
   type TimelineItem,
   type TimelineResults,
 } from "@/lib/timeline";
@@ -63,13 +66,11 @@ function TimelineEntry({ item }: { item: TimelineItem }) {
         }
       >
         <div className="timeline-entry-top">
-          <span className="timeline-person">
-            <ProfileAvatar
-              name={profile?.name ?? "Health profile"}
-              avatar={profile?.avatar}
-            />
-            {profile?.name ?? "Health profile"}
-          </span>
+          <ProfileIdentity
+            className="timeline-person"
+            name={profile?.name ?? "Health profile"}
+            avatar={profile?.avatar}
+          />
           <time dateTime={item.occurred_at}>
             {episode
               ? "Episode"
@@ -82,7 +83,7 @@ function TimelineEntry({ item }: { item: TimelineItem }) {
         <div className="timeline-kind">
           {document ? "Uploaded document" : ""}
           {document ? " · " : ""}
-          {item.event_type}
+          <EventTypeBadge type={item.event_type} />
         </div>
         <h3>
           {item.title}
@@ -101,15 +102,10 @@ function TimelineEntry({ item }: { item: TimelineItem }) {
             attachments
           </p>
         )}
-        {(item.category || item.tags.length > 0) && (
+        {item.tags.length > 0 && (
           <div className="event-labels">
-            {item.category && (
-              <span className="category-pill">{item.category.name}</span>
-            )}
             {item.tags.map((tag) => (
-              <span className="tag-pill" key={tag.id}>
-                {tag.name}
-              </span>
+              <TagPill name={tag.name} key={tag.id} />
             ))}
           </div>
         )}
@@ -180,7 +176,7 @@ function TimelineContent({
                   <div className="timeline-day" key={day.key}>
                     <div className="timeline-day-label">
                       <time dateTime={day.date.toISOString()}>
-                        <strong>{day.date.getDate()}</strong>
+                        <strong>{ordinalDay(day.date.getDate())}</strong>
                         <span>
                           {day.date.toLocaleDateString(undefined, {
                             weekday: "short",
@@ -188,9 +184,7 @@ function TimelineContent({
                         </span>
                       </time>
                       <span className="sr-only">
-                        {day.date.toLocaleDateString(undefined, {
-                          dateStyle: "full",
-                        })}
+                        {formatAccessibleDate(day.date)}
                       </span>
                     </div>
                     <ol className="timeline-day-items">
@@ -230,10 +224,8 @@ function TimelineContent({
   );
 }
 export function HealthTimeline() {
-  const [year, setYear] = useState(""),
-    [entryType, setEntryType] = useState("all");
+  const [entryType, setEntryType] = useState("all");
   const { query, error } = useTrackerQuery();
-  const selected = timelineYearQuery(query, year);
   return (
     <>
       <div className="page-heading">
@@ -245,50 +237,31 @@ export function HealthTimeline() {
           Add event
         </Link>
       </div>
-      <TrackerFiltersBar />
-      <section className="timeline-controls" aria-label="Timeline filters">
-        <div className="filter-select">
-          <label htmlFor="timeline-year">Year</label>
-          <input
-            id="timeline-year"
-            type="number"
-            min="1000"
-            max="9998"
-            placeholder="All years"
-            value={year}
-            onChange={(e) => setYear(e.target.value)}
-          />
-        </div>
-        <div className="filter-select">
-          <label htmlFor="timeline-entry-type">Show</label>
-          <select
-            id="timeline-entry-type"
-            value={entryType}
-            onChange={(e) => setEntryType(e.target.value)}
-          >
-            <option value="all">All entries</option>
-            <option value="episode">Health episodes only</option>
-            <option value="event">Health events only</option>
-            <option value="document">Uploaded documents only</option>
-          </select>
-        </div>
-        {(year || entryType !== "all") && (
-          <button
-            className="text-link"
-            onClick={() => {
-              setYear("");
-              setEntryType("all");
-            }}
-          >
-            Reset timeline options
-          </button>
-        )}
-      </section>
+      <TrackerFiltersBar
+        extraFilterCount={entryType === "all" ? 0 : 1}
+        onClearExtra={() => setEntryType("all")}
+        extraFilters={
+          <div className="filter-select">
+            <label htmlFor="timeline-entry-type">Entry type</label>
+            <CustomSelect
+              id="timeline-entry-type"
+              value={entryType}
+              onChange={setEntryType}
+              options={[
+                { value: "all", label: "All entries" },
+                { value: "episode", label: "Health episodes" },
+                { value: "event", label: "Health events" },
+                { value: "document", label: "Uploaded documents" },
+              ]}
+            />
+          </div>
+        }
+      />
       <TimelineContent
-        key={JSON.stringify([selected.query, entryType, selected.error, error])}
-        query={selected.query}
+        key={JSON.stringify([query, entryType, error])}
+        query={query}
         entryType={entryType}
-        error={error || selected.error}
+        error={error}
       />
     </>
   );

@@ -1,7 +1,13 @@
 "use client";
+import { EventTypesProvider } from "./event-types";
 import { ProvidersProvider } from "./providers-context";
 import { ToastProvider } from "./ui/feedback";
-import { ProfileAvatar } from "./ui/profile-avatar";
+import {
+  ProfileAvatar,
+  ProfileAvatarGroup,
+  ProfileIdentity,
+} from "./ui/profile-avatar";
+import { CustomSelect } from "./ui/pickers";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useState } from "react";
@@ -9,7 +15,6 @@ import {
   Activity,
   LayoutDashboard,
   CalendarDays,
-  ListTodo,
   History,
   Files,
   Layers,
@@ -19,7 +24,6 @@ import {
   LogOut,
   Menu,
   X,
-  ChevronDown,
 } from "lucide-react";
 import { TrackerProvider } from "./tracker/context";
 import { supabase } from "@/lib/supabase";
@@ -52,7 +56,6 @@ const navigation = [
   { href: "/timeline", label: "Timeline", icon: History },
   { href: "/documents", label: "Documents", icon: Files },
   { href: "/episodes", label: "Health episodes", icon: Layers },
-  { href: "/events", label: "Events", icon: ListTodo },
   { href: "/providers", label: "Medical Providers", icon: Stethoscope },
   { href: "/settings", label: "Settings", icon: Settings2 },
 ];
@@ -206,121 +209,133 @@ export function AppShell({
     >
       <ToastProvider>
         <ProvidersProvider>
-          <TrackerProvider>
-            <div className="app-shell">
-              <a className="skip-link" href="#main">
-                Skip to content
-              </a>
-              {open && (
-                <button
-                  className="nav-backdrop"
-                  aria-label="Close navigation"
-                  onClick={() => setOpen(false)}
-                />
-              )}
-              <aside
-                className={`sidebar ${open ? "is-open" : ""}`}
-                aria-label="Main navigation"
-              >
-                <Link
-                  className="brand"
-                  href="/dashboard"
-                  onClick={() => setOpen(false)}
+          <EventTypesProvider>
+            <TrackerProvider>
+              <div className="app-shell">
+                <a className="skip-link" href="#main">
+                  Skip to content
+                </a>
+                {open && (
+                  <button
+                    className="nav-backdrop"
+                    aria-label="Close navigation"
+                    onClick={() => setOpen(false)}
+                  />
+                )}
+                <aside
+                  className={`sidebar ${open ? "is-open" : ""}`}
+                  aria-label="Main navigation"
                 >
-                  <span className="brand-mark">
-                    <Activity size={24} />
-                  </span>
-                  Health tracker
-                </Link>
-                <button
-                  className="mobile-close icon-button"
-                  onClick={() => setOpen(false)}
-                  aria-label="Close navigation"
-                >
-                  <X />
-                </button>
-
-                <nav>
-                  {navigation.map(({ href, label, icon: Icon }) => (
-                    <Link
-                      key={href}
-                      href={href}
-                      onClick={() => setOpen(false)}
-                      className={`nav-item ${pathname === href || pathname.startsWith(`${href}/`) ? "active" : ""}`}
-                      aria-current={
-                        pathname === href || pathname.startsWith(`${href}/`)
-                          ? "page"
-                          : undefined
-                      }
-                    >
-                      <Icon size={20} />
-                      {label}
-                    </Link>
-                  ))}
-                </nav>
-                <div className="sidebar-bottom">
-                  <button className="nav-item sign-out" onClick={signOut}>
-                    <LogOut size={19} />
-                    Sign out
+                  <Link
+                    className="brand"
+                    href="/dashboard"
+                    onClick={() => setOpen(false)}
+                  >
+                    <span className="brand-mark">
+                      <Activity size={24} />
+                    </span>
+                    Health tracker
+                  </Link>
+                  <button
+                    className="mobile-close icon-button"
+                    onClick={() => setOpen(false)}
+                    aria-label="Close navigation"
+                  >
+                    <X />
                   </button>
-                </div>
-              </aside>
-              <div className="workspace">
-                <header className="header">
-                  <div className="header-context">
-                    <button
-                      className="icon-button mobile-menu"
-                      aria-label="Open navigation"
-                      aria-expanded={open}
-                      onClick={() => setOpen(true)}
-                    >
-                      <Menu />
-                    </button>
 
-                    <strong>
-                      {
-                        navigation.find(
-                          (n) =>
-                            pathname === n.href ||
-                            pathname.startsWith(`${n.href}/`),
-                        )?.label
-                      }
-                    </strong>
+                  <nav>
+                    {navigation.map(({ href, label, icon: Icon }) => (
+                      <Link
+                        key={href}
+                        href={href}
+                        onClick={() => setOpen(false)}
+                        className={`nav-item ${pathname === href || pathname.startsWith(`${href}/`) ? "active" : ""}`}
+                        aria-current={
+                          pathname === href || pathname.startsWith(`${href}/`)
+                            ? "page"
+                            : undefined
+                        }
+                      >
+                        <Icon size={20} />
+                        {label}
+                      </Link>
+                    ))}
+                  </nav>
+                  <div className="sidebar-bottom">
+                    <button className="nav-item sign-out" onClick={signOut}>
+                      <LogOut size={19} />
+                      Sign out
+                    </button>
                   </div>
-                  <div className="profile-control">
-                    <ProfileAvatar
-                      name={activeProfile?.name ?? "Both profiles"}
-                      avatar={activeProfile?.avatar}
-                    />
-                    <label className="sr-only" htmlFor="profile">
-                      Active health profile
-                    </label>
-                    <select
-                      id="profile"
-                      value={profileId}
-                      onChange={(e) => setProfileId(e.target.value)}
-                    >
-                      <option value="">Both profiles</option>
-                      {profiles.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={15} />
-                  </div>
-                </header>
-                <main id="main" className="main-content">
-                  {error && (
-                    <p role="alert" className="form-error">
-                      {error}
-                    </p>
-                  )}
-                  {children}
-                </main>
+                </aside>
+                <div className="workspace">
+                  <header className="header">
+                    <div className="header-context">
+                      <button
+                        className="icon-button mobile-menu"
+                        aria-label="Open navigation"
+                        aria-expanded={open}
+                        onClick={() => setOpen(true)}
+                      >
+                        <Menu />
+                      </button>
+
+                      <strong>
+                        {
+                          navigation.find(
+                            (n) =>
+                              pathname === n.href ||
+                              pathname.startsWith(`${n.href}/`),
+                          )?.label
+                        }
+                      </strong>
+                    </div>
+                    <div className="profile-control">
+                      {activeProfile ? (
+                        <ProfileAvatar
+                          name={activeProfile.name}
+                          avatar={activeProfile.avatar}
+                        />
+                      ) : (
+                        <ProfileAvatarGroup profiles={profiles} />
+                      )}
+                      <label className="sr-only" htmlFor="profile">
+                        Active health profile
+                      </label>
+                      <CustomSelect
+                        id="profile"
+                        value={profileId}
+                        ariaLabel="Active health profile"
+                        onChange={setProfileId}
+                        options={[
+                          { value: "", label: "Both profiles" },
+                          ...profiles.map((profile) => ({
+                            value: profile.id,
+                            label: profile.name,
+                            content: (
+                              <ProfileIdentity
+                                name={profile.name}
+                                avatar={profile.avatar}
+                              />
+                            ),
+                          })),
+                        ]}
+                      />
+                    </div>
+                  </header>
+                  <main id="main" className="main-content">
+                    {error && (
+                      <p role="alert" className="form-error">
+                        {error}
+                      </p>
+                    )}
+                    {children}
+                  </main>
+                </div>
               </div>
-            </div>
-          </TrackerProvider>
+            </TrackerProvider>
+          </EventTypesProvider>
         </ProvidersProvider>
       </ToastProvider>
     </ProfileContext.Provider>

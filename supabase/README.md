@@ -91,3 +91,9 @@ The attachment test supplies a minimal Storage schema in PGlite and executes the
 ## Health episodes migration
 
 Apply `202609120008_episodes.sql` after Documents. It creates `health_episodes`, `health_episode_events`, ownership policies, profile-consistent foreign keys, atomic save/read functions, and extends `health_timeline` with episode entries. Existing event data needs no backfill. Episode deletion removes links only. Database tests verify isolation, profile consistency, rollback, timeline inclusion, and preservation of events.
+
+## Event types migration
+
+Apply `202609120009_event_types.sql` after episodes. It adds per-owner event types, seeded defaults, editable labels/colors, and archival. Stable keys preserve built-in behavior. A database trigger rejects new assignments of missing or archived types while permitting edits to existing records that retain their type. Tests cover custom type creation, renaming, archival, validation, and cross-owner isolation.
+
+`202609130012_document_event_category_filter.sql` extends private document search with the related event's category. It retains the existing security-invoker function and all underlying RLS boundaries.

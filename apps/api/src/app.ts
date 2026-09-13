@@ -1,3 +1,4 @@
+import { eventTypeRouter } from "./event-types.js";
 import { episodeRouter } from "./episodes.js";
 import { providerRouter } from "./providers.js";
 import { documentRouter } from "./documents.js";
@@ -76,6 +77,7 @@ export function createApp(options: AppOptions) {
   app.use("/api/v1/documents", documentRouter());
   app.use("/api/v1/events", eventRouter());
   app.use("/api/v1/providers", providerRouter());
+  app.use("/api/v1/event-types", eventTypeRouter());
   app.use("/api/v1/episodes", episodeRouter());
   app.use("/api/v1/tags", labelRouter("tags"));
   app.use("/api/v1/categories", labelRouter("categories"));

@@ -6,6 +6,7 @@ export type Provider = {
   email: string | null;
   address: string | null;
   website: string | null;
+  rating: number | null;
   notes: string | null;
   created_at: string;
 };

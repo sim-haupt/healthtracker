@@ -1,13 +1,26 @@
 "use client";
+import { EventTypeBadge } from "./event-types";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Plus, ArrowLeft } from "lucide-react";
+import {
+  Plus,
+  ArrowLeft,
+  Pencil,
+  Trash2,
+  ChevronDown,
+  ArrowUpRight,
+} from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { dayKey } from "@/lib/tracker";
+import { formatDate } from "@/lib/date-format";
 import type { EventSummary } from "@/lib/events";
 import { useProfiles } from "./app-shell";
 import { useTrackerResults, type EventResults } from "./tracker/use-results";
+import { useTracker } from "./tracker/context";
 import { EventRows } from "./tracker/event-rows";
+import { TagFilterPills, TagPill } from "./ui/labels";
+import { ProfileIdentity } from "./ui/profile-avatar";
+import { CustomSelect, DatePicker } from "./ui/pickers";
 import {
   LoadingState,
   ErrorState,
@@ -77,8 +90,11 @@ export function EpisodeOverview({ profileId }: { profileId: string }) {
               <li key={e.id}>
                 <Link href={`/episodes/${e.id}`}>
                   <strong>{e.title}</strong>
-                  <span>
-                    {e.status} · {e.start_date}
+                  <span className="episode-list-meta">
+                    <span className={`status-pill episode-status-${e.status}`}>
+                      {e.status}
+                    </span>
+                    <span>{formatDate(e.start_date)}</span>
                   </span>
                 </Link>
               </li>
@@ -98,6 +114,7 @@ function EpisodeEditor({
   onSaved: (e: Episode) => void;
 }) {
   const { profiles, activeProfile } = useProfiles();
+  const { tags } = useTracker();
   const toast = useToast();
   const [draft, setDraft] = useState({
     title: episode?.title ?? "",
@@ -111,7 +128,8 @@ function EpisodeEditor({
   });
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [search, setSearch] = useState("");
+    [search, setSearch] = useState(""),
+    [tagIds, setTagIds] = useState<string[]>([]);
   const options = useTrackerResults<EventResults>(
     "/api/v1/events/search",
     { profile_id: draft.profile_id, page: 1, page_size: 100 },
@@ -125,6 +143,10 @@ function EpisodeEditor({
       onSubmit={async (e) => {
         e.preventDefault();
         if (busy) return;
+        if (!draft.start_date) {
+          setError("Choose a start date.");
+          return;
+        }
         if (draft.end_date && draft.end_date < draft.start_date) {
           setError("End date must be on or after start date.");
           return;
@@ -164,60 +186,80 @@ function EpisodeEditor({
         <div className="form-grid">
           <div className="form-field">
             <label htmlFor="episode-profile">Profile</label>
-            <select
-              id="episode-profile"
-              value={draft.profile_id}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  profile_id: e.target.value,
-                  event_ids: [],
-                }))
-              }
+            <div
+              className="profile-choices"
+              role="radiogroup"
+              aria-label="Episode profile"
             >
-              {profiles.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
+              {profiles.map((profile) => (
+                <label
+                  key={profile.id}
+                  className={draft.profile_id === profile.id ? "selected" : ""}
+                >
+                  <input
+                    type="radio"
+                    name="episode-profile"
+                    value={profile.id}
+                    checked={draft.profile_id === profile.id}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        profile_id: e.target.value,
+                        event_ids: [],
+                      }))
+                    }
+                  />
+                  <ProfileIdentity
+                    name={profile.name}
+                    avatar={profile.avatar}
+                  />
+                </label>
               ))}
-            </select>
+            </div>
             {episode && (
               <p className="form-hint">
                 Changing profile clears the selected events.
               </p>
             )}
           </div>
+          <div className="episode-picker-filters">
+            <TagFilterPills
+              legend="Tags"
+              items={tags}
+              selected={tagIds}
+              onChange={(ids) => setTagIds(ids.slice(0, 20))}
+            />
+          </div>
           <div className="form-field">
             <label htmlFor="episode-status">Status</label>
-            <select
+            <CustomSelect
               id="episode-status"
               value={draft.status}
-              onChange={(e) => update("status", e.target.value)}
-            >
-              <option value="active">Active</option>
-              <option value="resolved">Resolved</option>
-            </select>
+              onChange={(value) => update("status", value)}
+              options={[
+                { value: "active", label: "Active" },
+                { value: "resolved", label: "Resolved" },
+              ]}
+            />
           </div>
           <div className="form-field">
             <label htmlFor="episode-start">Start date</label>
-            <input
+            <DatePicker
               id="episode-start"
-              type="date"
-              required
               value={draft.start_date}
-              onChange={(e) => update("start_date", e.target.value)}
+              onChange={(value) => update("start_date", value)}
             />
           </div>
           <div className="form-field">
             <label htmlFor="episode-end">
               End date <span>Optional</span>
             </label>
-            <input
+            <DatePicker
               id="episode-end"
-              type="date"
               min={draft.start_date}
+              optional
               value={draft.end_date}
-              onChange={(e) => update("end_date", e.target.value)}
+              onChange={(value) => update("end_date", value)}
             />
           </div>
         </div>
@@ -263,8 +305,10 @@ function EpisodeEditor({
           ) : (
             <div className="episode-event-options">
               {options.data.events
-                .filter((e) =>
-                  e.title.toLowerCase().includes(search.toLowerCase()),
+                .filter(
+                  (e) =>
+                    e.title.toLowerCase().includes(search.toLowerCase()) &&
+                    tagIds.every((id) => e.tags?.some((tag) => tag.id === id)),
                 )
                 .map((e) => (
                   <label key={e.id}>
@@ -287,8 +331,8 @@ function EpisodeEditor({
                     <span>
                       <strong>{e.title}</strong>
                       <small>
-                        {e.event_type} ·{" "}
-                        {new Date(e.event_date).toLocaleDateString()}
+                        <EventTypeBadge type={e.event_type} /> ·{" "}
+                        {formatDate(e.event_date)}
                       </small>
                     </span>
                   </label>
@@ -321,6 +365,97 @@ function EpisodeEditor({
     </form>
   );
 }
+
+function EpisodeEventTimeline({ events }: { events: EventSummary[] }) {
+  const ordered = [...events].sort(
+    (a, b) =>
+      Date.parse(a.event_date) - Date.parse(b.event_date) ||
+      a.id.localeCompare(b.id),
+  );
+  if (!ordered.length)
+    return <p className="overview-empty">No related events.</p>;
+  return (
+    <ol className="episode-event-timeline">
+      {ordered.map((event) => (
+        <li key={event.id}>
+          <time dateTime={event.event_date}>
+            {formatDate(event.event_date)}
+          </time>
+          <span className="episode-timeline-marker" aria-hidden="true" />
+          <Link href={`/events/${event.id}`}>
+            <span className="episode-timeline-type">
+              <EventTypeBadge type={event.event_type} />
+            </span>
+            <strong>
+              {event.title}
+              <ArrowUpRight size={15} aria-hidden="true" />
+            </strong>
+            {!!event.tags?.length && (
+              <span className="event-labels">
+                {event.tags.map((tag) => (
+                  <TagPill key={tag.id} name={tag.name} />
+                ))}
+              </span>
+            )}
+          </Link>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function EpisodeAccordionCard({
+  episode,
+  profile,
+}: {
+  episode: Episode;
+  profile?: { name: string; avatar: string | null };
+}) {
+  return (
+    <details className="card episode-accordion-card">
+      <summary>
+        <div className="episode-card-title">
+          <strong>{episode.title}</strong>
+          <span className="episode-list-meta">
+            <ProfileIdentity
+              name={profile?.name ?? "Health profile"}
+              avatar={profile?.avatar}
+            />
+            <span className={`status-pill episode-status-${episode.status}`}>
+              {episode.status}
+            </span>
+          </span>
+        </div>
+        <div className="episode-card-range">
+          <span>
+            {formatDate(episode.start_date)}
+            {episode.end_date ? ` – ${formatDate(episode.end_date)}` : ""}
+          </span>
+          <span>
+            {episode.events.length}{" "}
+            {episode.events.length === 1 ? "event" : "events"}
+          </span>
+        </div>
+        <ChevronDown
+          className="episode-card-chevron"
+          size={19}
+          aria-hidden="true"
+        />
+      </summary>
+      <div className="episode-accordion-content">
+        {episode.description && <p>{episode.description}</p>}
+        <EpisodeEventTimeline events={episode.events} />
+        <Link
+          className="text-link episode-open-link"
+          href={`/episodes/${episode.id}`}
+        >
+          Open episode <ArrowUpRight size={15} />
+        </Link>
+      </div>
+    </details>
+  );
+}
+
 export function EpisodesPage({ id }: { id?: string }) {
   const { profiles, activeProfile } = useProfiles();
   const [data, setData] = useState<Episode[]>();
@@ -365,11 +500,19 @@ export function EpisodesPage({ id }: { id?: string }) {
         </h1>
         {!editing && (
           <button
-            className={id ? "button secondary-button" : "button"}
+            className={id ? "icon-button" : "button"}
+            aria-label={id ? "Edit episode" : undefined}
+            title={id ? "Edit" : undefined}
             disabled={!!id && !episode}
             onClick={() => setEditing(true)}
           >
-            {!id && <Plus size={16} />} {id ? "Edit" : "Add episode"}
+            {id ? (
+              <Pencil size={17} aria-hidden="true" />
+            ) : (
+              <>
+                <Plus size={16} /> Add episode
+              </>
+            )}
           </button>
         )}
       </div>
@@ -390,13 +533,23 @@ export function EpisodesPage({ id }: { id?: string }) {
         <>
           <section className="card basic-information">
             <div className="document-meta">
-              <span className="category-pill">{episode.status}</span>
-              <span>
-                {profiles.find((p) => p.id === episode.profile_id)?.name}
+              <span className={`status-pill episode-status-${episode.status}`}>
+                {episode.status}
               </span>
+              {(() => {
+                const profile = profiles.find(
+                  (p) => p.id === episode.profile_id,
+                );
+                return (
+                  <ProfileIdentity
+                    name={profile?.name ?? "Health profile"}
+                    avatar={profile?.avatar}
+                  />
+                );
+              })()}
               <span>
-                {episode.start_date}
-                {episode.end_date ? " – " + episode.end_date : ""}
+                {formatDate(episode.start_date)}
+                {episode.end_date ? ` – ${formatDate(episode.end_date)}` : ""}
               </span>
             </div>
             {episode.description && (
@@ -412,29 +565,32 @@ export function EpisodesPage({ id }: { id?: string }) {
             )}
           </section>
           <button
-            className="button danger-outline"
+            className="icon-button danger-icon episode-delete-action"
+            aria-label="Delete episode"
+            title="Delete"
             onClick={() => setDeleting(true)}
           >
-            Delete episode
+            <Trash2 size={17} aria-hidden="true" />
           </button>
         </>
+      ) : data.length ? (
+        <div className="episode-cards">
+          {data.map((episode) => (
+            <EpisodeAccordionCard
+              key={episode.id}
+              episode={episode}
+              profile={profiles.find(
+                (profile) => profile.id === episode.profile_id,
+              )}
+            />
+          ))}
+        </div>
       ) : (
-        <section className="card">
-          <ul className="episode-list">
-            {data.map((e) => (
-              <li key={e.id}>
-                <Link href={`/episodes/${e.id}`}>
-                  <strong>{e.title}</strong>
-                  <span>
-                    {profiles.find((p) => p.id === e.profile_id)?.name} ·{" "}
-                    {e.status} · {e.start_date}
-                    {e.end_date ? " – " + e.end_date : ""}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-          {!data.length && <p className="overview-empty">No episodes.</p>}
+        <section className="card event-state">
+          <h2>No episodes</h2>
+          <button className="button" onClick={() => setEditing(true)}>
+            <Plus size={16} /> Add episode
+          </button>
         </section>
       )}
       {deleting && episode && (

@@ -1,41 +1,50 @@
 "use client";
 import { useProviders } from "../providers-context";
 import { Search, SlidersHorizontal } from "lucide-react";
-import { eventTypes } from "@/lib/events";
+import { useEventTypes } from "../event-types";
 import { emptyFilters, filterQuery, type TrackerFilters } from "@/lib/tracker";
 import { useProfiles } from "../app-shell";
 import { useTracker } from "./context";
+import type { ReactNode } from "react";
+import { TagFilterPills } from "../ui/labels";
+import { CustomSelect, DatePicker } from "../ui/pickers";
 export function useTrackerQuery() {
   const { filters, search } = useTracker();
   const { activeProfile } = useProfiles();
   return filterQuery({ ...filters, q: search }, activeProfile?.id);
 }
-export function TrackerFiltersBar() {
+export function TrackerFiltersBar({
+  extraFilters,
+  extraFilterCount = 0,
+  onClearExtra,
+}: {
+  extraFilters?: ReactNode;
+  extraFilterCount?: number;
+  onClearExtra?: () => void;
+} = {}) {
   const doctors = useProviders();
+  const typeOptions = useEventTypes();
   const {
     filters,
     setFilters,
-    categories,
     tags,
     labelError,
     labelsLoading,
     reloadLabels,
     search,
   } = useTracker();
-  const { profiles, activeProfile, setActiveProfile } = useProfiles();
   const update = <K extends keyof TrackerFilters>(
     key: K,
     value: TrackerFilters[K],
   ) => setFilters((previous) => ({ ...previous, [key]: value }));
   const count =
     Number(!!filters.provider_id) +
-    Number(!!activeProfile) +
     Number(!!filters.event_type) +
-    Number(!!filters.category_id) +
     filters.tag_ids.length +
     Number(!!filters.date_from) +
     Number(!!filters.date_to) +
-    Number(!!filters.q);
+    Number(!!filters.q) +
+    extraFilterCount;
   const error = filterQuery(filters).error;
   return (
     <section className="card tracker-filters" aria-label="Filter health events">
@@ -55,32 +64,19 @@ export function TrackerFiltersBar() {
           />
         </div>
         <div className="filter-select">
-          <label htmlFor="filter-profile">Profile</label>
-          <select
-            id="filter-profile"
-            value={activeProfile?.id ?? ""}
-            onChange={(e) => setActiveProfile(e.target.value)}
-          >
-            <option value="">Both profiles</option>
-            {profiles.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="filter-select">
           <label htmlFor="filter-type">Event type</label>
-          <select
+          <CustomSelect
             id="filter-type"
             value={filters.event_type}
-            onChange={(e) => update("event_type", e.target.value)}
-          >
-            <option value="">All types</option>
-            {eventTypes.map((type) => (
-              <option key={type}>{type}</option>
-            ))}
-          </select>
+            onChange={(value) => update("event_type", value)}
+            options={[
+              { value: "", label: "All types" },
+              ...typeOptions.types.map((type) => ({
+                value: type.key,
+                label: `${type.name}${type.archived ? " (removed)" : ""}`,
+              })),
+            ]}
+          />
         </div>
       </div>
       <div className="filter-footer">
@@ -90,21 +86,22 @@ export function TrackerFiltersBar() {
             {count > 0 && <span className="filter-count">{count}</span>}
           </summary>
           <div className="advanced-filters">
+            {extraFilters}
             <div className="filter-select">
               <label htmlFor="filter-doctor">Doctor</label>
-              <select
+              <CustomSelect
                 id="filter-doctor"
                 value={filters.provider_id ?? ""}
-                onChange={(e) => update("provider_id", e.target.value)}
+                onChange={(value) => update("provider_id", value)}
                 disabled={doctors.loading}
-              >
-                <option value="">All doctors</option>
-                {doctors.providers.map((p) => (
-                  <option value={p.id} key={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: "All doctors" },
+                  ...doctors.providers.map((provider) => ({
+                    value: provider.id,
+                    label: provider.name,
+                  })),
+                ]}
+              />
               {doctors.error && (
                 <p className="field-error" role="alert">
                   {doctors.error}{" "}
@@ -115,75 +112,31 @@ export function TrackerFiltersBar() {
               )}
             </div>
             <div className="filter-select">
-              <label htmlFor="filter-category">Category</label>
-              <select
-                id="filter-category"
-                value={filters.category_id}
-                onChange={(e) => update("category_id", e.target.value)}
-                disabled={labelsLoading}
-              >
-                <option value="">All categories</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="filter-select">
               <label htmlFor="filter-from">From</label>
-              <input
+              <DatePicker
                 id="filter-from"
-                type="date"
                 value={filters.date_from}
-                onChange={(e) => update("date_from", e.target.value)}
+                optional
+                onChange={(value) => update("date_from", value)}
               />
             </div>
             <div className="filter-select">
               <label htmlFor="filter-to">Through</label>
-              <input
+              <DatePicker
                 id="filter-to"
-                type="date"
                 value={filters.date_to}
-                onChange={(e) => update("date_to", e.target.value)}
+                optional
+                min={filters.date_from}
+                onChange={(value) => update("date_to", value)}
               />
             </div>
-            <fieldset className="filter-tags">
-              <legend>
-                Tags <span>Matches all selected tags</span>
-              </legend>
-              <div className="tag-options">
-                {tags.map((tag) => (
-                  <label
-                    key={tag.id}
-                    className={`tag-option ${filters.tag_ids.includes(tag.id) ? "selected" : ""}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={filters.tag_ids.includes(tag.id)}
-                      disabled={
-                        !filters.tag_ids.includes(tag.id) &&
-                        filters.tag_ids.length >= 20
-                      }
-                      onChange={(e) =>
-                        update(
-                          "tag_ids",
-                          e.target.checked
-                            ? [...filters.tag_ids, tag.id]
-                            : filters.tag_ids.filter((id) => id !== tag.id),
-                        )
-                      }
-                    />
-                    {tag.name}
-                  </label>
-                ))}
-              </div>
-              {!tags.length && !labelsLoading && (
-                <p className="muted">
-                  Create tags when adding or editing an event.
-                </p>
-              )}
-            </fieldset>
+            <TagFilterPills
+              legend="Tags"
+              items={tags}
+              selected={filters.tag_ids}
+              onChange={(ids) => update("tag_ids", ids.slice(0, 20))}
+              emptyText={labelsLoading ? undefined : "No tags are available."}
+            />
           </div>
         </details>
         <button
@@ -191,7 +144,7 @@ export function TrackerFiltersBar() {
           disabled={!count}
           onClick={() => {
             setFilters(emptyFilters);
-            setActiveProfile("");
+            onClearExtra?.();
           }}
         >
           Clear filters
@@ -206,7 +159,7 @@ export function TrackerFiltersBar() {
         <p role="alert" className="field-error">
           {labelError}{" "}
           <button className="text-link" onClick={reloadLabels}>
-            Retry labels
+            Retry
           </button>
         </p>
       )}

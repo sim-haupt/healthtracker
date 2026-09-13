@@ -1,4 +1,5 @@
 "use client";
+import { EventTypeBadge } from "./event-types";
 import { useTracker } from "./tracker/context";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,12 +16,14 @@ import {
   ArrowLeft,
   ArrowUpRight,
   NotebookPen,
+  Star,
 } from "lucide-react";
 import { apiFetch, ApiError } from "@/lib/api";
 import { dateLabel, type HealthEvent } from "@/lib/events";
 import type { Provider, ProviderInput } from "@/lib/providers";
 import { useProviders } from "./providers-context";
 import { useProfiles } from "./app-shell";
+import { ProfileIdentity } from "./ui/profile-avatar";
 import {
   ConfirmDialog,
   LoadingState,
@@ -30,6 +33,7 @@ import {
 const providerFields = [
   "name",
   "specialty",
+  "rating",
   "phone",
   "email",
   "address",
@@ -39,12 +43,70 @@ const providerFields = [
 const fieldLabels: Record<(typeof providerFields)[number], string> = {
   name: "Name",
   specialty: "Specialty",
+  rating: "Rating",
   phone: "Phone",
   email: "Email",
   address: "Address",
   website: "Website",
   notes: "Notes",
 };
+function ProviderRating({
+  value,
+  onChange,
+  readOnly = false,
+}: {
+  value: number | null;
+  onChange?: (value: number | null) => void;
+  readOnly?: boolean;
+}) {
+  if (readOnly)
+    return value ? (
+      <span
+        className="provider-rating provider-rating-readonly"
+        aria-label={`${value} out of 5 stars`}
+      >
+        {Array.from({ length: 5 }, (_, index) => (
+          <Star
+            key={index}
+            size={15}
+            className={index < value ? "selected" : ""}
+            aria-hidden="true"
+          />
+        ))}
+      </span>
+    ) : null;
+  return (
+    <div className="provider-rating-field">
+      <div className="provider-rating" role="radiogroup" aria-label="Rating">
+        {Array.from({ length: 5 }, (_, index) => {
+          const rating = index + 1;
+          return (
+            <button
+              key={rating}
+              type="button"
+              role="radio"
+              aria-checked={value === rating}
+              aria-label={`${rating} ${rating === 1 ? "star" : "stars"}`}
+              className={rating <= (value ?? 0) ? "selected" : ""}
+              onClick={() => onChange?.(rating)}
+            >
+              <Star size={22} aria-hidden="true" />
+            </button>
+          );
+        })}
+      </div>
+      {value && (
+        <button
+          type="button"
+          className="provider-rating-clear"
+          onClick={() => onChange?.(null)}
+        >
+          Clear
+        </button>
+      )}
+    </div>
+  );
+}
 function ProviderEditor({
   provider,
   onClose,
@@ -58,7 +120,12 @@ function ProviderEditor({
   const [draft, setDraft] = useState(
     () =>
       Object.fromEntries(
-        providerFields.map((field) => [field, provider?.[field] ?? ""]),
+        providerFields.map((field) => [
+          field,
+          field === "rating"
+            ? (provider?.rating?.toString() ?? "")
+            : (provider?.[field] ?? ""),
+        ]),
       ) as Record<(typeof providerFields)[number], string>,
   );
   const [busy, setBusy] = useState(false),
@@ -76,7 +143,14 @@ function ProviderEditor({
     setErrors({});
     try {
       const input = Object.fromEntries(
-        providerFields.map((field) => [field, draft[field].trim() || null]),
+        providerFields.map((field) => [
+          field,
+          field === "rating"
+            ? draft.rating
+              ? Number(draft.rating)
+              : null
+            : draft[field].trim() || null,
+        ]),
       ) as ProviderInput;
       const { provider: saved } = await apiFetch<{ provider: Provider }>(
         provider ? `/api/v1/providers/${provider.id}` : "/api/v1/providers",
@@ -116,7 +190,17 @@ function ProviderEditor({
                   {fieldLabels[field]}{" "}
                   {field !== "name" && <span>Optional</span>}
                 </label>
-                {field === "notes" || field === "address" ? (
+                {field === "rating" ? (
+                  <ProviderRating
+                    value={draft.rating ? Number(draft.rating) : null}
+                    onChange={(value) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        rating: value?.toString() ?? "",
+                      }))
+                    }
+                  />
+                ) : field === "notes" || field === "address" ? (
                   <textarea
                     id={`provider-${field}`}
                     value={draft[field]}
@@ -213,7 +297,7 @@ export function ProviderDirectory() {
         <LoadingState label="Loading your medical providers…" />
       ) : (
         <>
-          <div className="form-field provider-search">
+          <div className="card tracker-filters form-field provider-search">
             <label htmlFor="provider-search">Find a provider</label>
             <input
               type="search"
@@ -237,6 +321,7 @@ export function ProviderDirectory() {
                   <div>
                     <h2>{provider.name}</h2>
                     <p>{provider.specialty || "Healthcare provider"}</p>
+                    <ProviderRating value={provider.rating} readOnly />
                     {provider.address && (
                       <span className="muted">{provider.address}</span>
                     )}
@@ -280,12 +365,12 @@ function RelatedRecords({ id }: { id: string }) {
     data?: { events: HealthEvent[]; total: number };
     error?: string;
   }>({ key: "" });
-  const { profiles } = useProfiles();
-  const key = `${id}:${page}:${attempt}`;
+  const { profiles, activeProfile } = useProfiles();
+  const key = `${id}:${activeProfile?.id ?? "all"}:${page}:${attempt}`;
   useEffect(() => {
     const controller = new AbortController();
     apiFetch<{ events: HealthEvent[]; total: number }>(
-      `/api/v1/providers/${id}/events?page=${page}`,
+      `/api/v1/providers/${id}/events?page=${page}${activeProfile ? `&profile_id=${activeProfile.id}` : ""}`,
       controller.signal,
     )
       .then((data) => {
@@ -295,7 +380,7 @@ function RelatedRecords({ id }: { id: string }) {
         if (!controller.signal.aborted) setState({ key, error: cause.message });
       });
     return () => controller.abort();
-  }, [id, page, attempt, key]);
+  }, [id, page, attempt, key, activeProfile]);
   if (state.key !== key)
     return <LoadingState label="Gathering related health records…" />;
   if (state.error)
@@ -338,8 +423,8 @@ function RelatedRecords({ id }: { id: string }) {
       <div className="section-intro">
         <h2>Related events</h2>
         <p>
-          {data.total} linked {data.total === 1 ? "event" : "events"} across
-          both profiles. Newest first.
+          {data.total} linked {data.total === 1 ? "event" : "events"}. Newest
+          first.
         </p>
       </div>
       {!data.total ? (
@@ -370,10 +455,19 @@ function RelatedRecords({ id }: { id: string }) {
                     {section.events.map((event) => (
                       <li key={event.id}>
                         <Link href={`/events/${event.id}`}>
-                          <span className="muted">
-                            {profiles.find((p) => p.id === event.profile_id)
-                              ?.name ?? "Health profile"}{" "}
-                            · {dateLabel(event.event_date)}
+                          <span className="provider-event-meta muted">
+                            {(() => {
+                              const profile = profiles.find(
+                                (p) => p.id === event.profile_id,
+                              );
+                              return (
+                                <ProfileIdentity
+                                  name={profile?.name ?? "Health profile"}
+                                  avatar={profile?.avatar}
+                                />
+                              );
+                            })()}
+                            <span>· {dateLabel(event.event_date)}</span>
                           </span>
                           <h3>{event.title}</h3>
                           {event[section.field] && (
@@ -398,7 +492,8 @@ function RelatedRecords({ id }: { id: string }) {
                     {event.title}
                   </Link>
                   <span className="muted">
-                    {event.event_type} · {dateLabel(event.event_date)}
+                    <EventTypeBadge type={event.event_type} /> ·{" "}
+                    {dateLabel(event.event_date)}
                   </span>
                 </li>
               ))}
@@ -497,21 +592,24 @@ export function ProviderDetail({ id }: { id: string }) {
         <div>
           <h1>{provider.name}</h1>
           <p>{provider.specialty || "Healthcare provider"}</p>
+          <ProviderRating value={provider.rating} readOnly />
         </div>
         <div className="event-actions">
           <button
-            className="button secondary-button"
+            className="icon-button"
+            aria-label={`Edit ${provider.name}`}
+            title="Edit"
             onClick={() => setEditing(true)}
           >
-            <Pencil size={16} />
-            Edit
+            <Pencil size={17} aria-hidden="true" />
           </button>
           <button
-            className="button danger-outline"
+            className="icon-button danger-icon"
+            aria-label={`Delete ${provider.name}`}
+            title="Delete"
             onClick={() => setDeleting(true)}
           >
-            <Trash2 size={16} />
-            Delete
+            <Trash2 size={17} aria-hidden="true" />
           </button>
         </div>
       </div>

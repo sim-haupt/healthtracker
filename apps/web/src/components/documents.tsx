@@ -1,4 +1,5 @@
 "use client";
+import { EventTypeBadge } from "./event-types";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -13,12 +14,16 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { useProfiles } from "./app-shell";
+import { DocumentUpload } from "./document-upload";
 import { useTracker } from "./tracker/context";
 import { useTrackerResults, type EventResults } from "./tracker/use-results";
 import { ErrorState, LoadingState } from "./ui/feedback";
-import { ProfileAvatar } from "./ui/profile-avatar";
+import { ProfileIdentity } from "./ui/profile-avatar";
+import { DocumentCategoryPill, TagFilterPills, TagPill } from "./ui/labels";
 import { supabase } from "@/lib/supabase";
 import { documentCategories } from "@/lib/attachments";
+import { formatDate } from "@/lib/date-format";
+import { CustomSelect, DatePicker } from "./ui/pickers";
 import {
   categoryLabel,
   documentFileTypes,
@@ -77,35 +82,25 @@ function DocumentCard({ item }: { item: HealthDocument }) {
       </div>
       <div className="document-body">
         <div className="document-meta">
-          <span className="category-pill">
-            {categoryLabel(item.document_category)}
-          </span>
+          <DocumentCategoryPill name={categoryLabel(item.document_category)} />
           <span>{fileKind(item)}</span>
           <span>{(item.file_size / 1024 / 1024).toFixed(2)} MB</span>
         </div>
         <h2>{item.file_name}</h2>
         {item.description && <p>{item.description}</p>}
         <div className="document-context">
+          <ProfileIdentity
+            name={profile?.name ?? "Health profile"}
+            avatar={profile?.avatar}
+          />
           <span>
-            <ProfileAvatar
-              name={profile?.name ?? "Health profile"}
-              avatar={profile?.avatar}
-            />
-            {profile?.name ?? "Health profile"}
-          </span>
-          <span>
-            <CalendarDays size={15} /> Uploaded{" "}
-            {new Date(item.created_at).toLocaleDateString(undefined, {
-              dateStyle: "medium",
-            })}
+            <CalendarDays size={15} /> Uploaded {formatDate(item.created_at)}
           </span>
         </div>
         {item.tags.length > 0 && (
           <div className="event-labels">
             {item.tags.map((tag) => (
-              <span className="tag-pill" key={tag.id}>
-                {tag.name}
-              </span>
+              <TagPill name={tag.name} key={tag.id} />
             ))}
           </div>
         )}
@@ -128,7 +123,9 @@ function DocumentCard({ item }: { item: HealthDocument }) {
           {item.event_title}
           <ArrowUpRight size={16} />
         </Link>
-        <span className="document-event-type">{item.event_type}</span>
+        <span className="document-event-type">
+          <EventTypeBadge type={item.event_type} />
+        </span>
       </div>
     </article>
   );
@@ -156,12 +153,9 @@ function DocumentResultsList({
           <FolderOpen size={25} />
         </span>
         <h2>No documents found</h2>
-        <p>
-          Upload a file from a health event, or clear a filter to see more of
-          your records.
-        </p>
-        <Link className="button secondary-button" href="/events">
-          Browse health events
+        <p>Upload a document above, or clear a filter to see more records.</p>
+        <Link className="button secondary-button" href="/timeline">
+          Browse timeline
         </Link>
         {page > 1 && (
           <button className="text-link" onClick={() => setPage(1)}>
@@ -207,17 +201,22 @@ function DocumentResultsList({
 }
 
 export function DocumentsPage() {
-  const { profiles, activeProfile, setActiveProfile } = useProfiles();
+  const { profiles, activeProfile } = useProfiles();
   const { tags, labelsLoading, labelError, reloadLabels } = useTracker();
   const [filters, setFilters] = useState<DocumentFilters>(emptyDocumentFilters);
   const [search, setSearch] = useState("");
+  const [revision, setRevision] = useState(0);
   useEffect(() => {
     const timer = window.setTimeout(() => setSearch(filters.q), 300);
     return () => window.clearTimeout(timer);
   }, [filters.q]);
   const eventOptions = useTrackerResults<EventResults>(
     "/api/v1/events/search",
-    { page: 1, page_size: 100 },
+    {
+      ...(activeProfile ? { profile_id: activeProfile.id } : {}),
+      page: 1,
+      page_size: 100,
+    },
     { allPages: true },
   );
   const update = <K extends keyof DocumentFilters>(
@@ -229,11 +228,8 @@ export function DocumentsPage() {
     [activeProfile?.id, filters, search],
   );
   const availableEvents = useMemo(
-    () =>
-      (eventOptions.data?.events ?? []).filter(
-        (event) => !activeProfile || event.profile_id === activeProfile.id,
-      ),
-    [activeProfile, eventOptions.data?.events],
+    () => eventOptions.data?.events ?? [],
+    [eventOptions.data?.events],
   );
   useEffect(() => {
     if (
@@ -244,7 +240,6 @@ export function DocumentsPage() {
       setFilters((previous) => ({ ...previous, event_id: "" }));
   }, [availableEvents, eventOptions.data, filters.event_id]);
   const count =
-    Number(!!activeProfile) +
     Number(!!filters.file_type) +
     Number(!!filters.event_id) +
     Number(!!filters.document_category) +
@@ -259,6 +254,14 @@ export function DocumentsPage() {
         <div>
           <h1>Documents</h1>
         </div>
+        <DocumentUpload
+          events={availableEvents}
+          profiles={profiles}
+          loading={!eventOptions.data && !eventOptions.error}
+          loadError={eventOptions.error}
+          retryEvents={eventOptions.retry}
+          onUploaded={() => setRevision((value) => value + 1)}
+        />
       </div>
       <section className="card tracker-filters" aria-label="Filter documents">
         <div className="filter-top">
@@ -277,37 +280,19 @@ export function DocumentsPage() {
             />
           </div>
           <div className="filter-select">
-            <label htmlFor="document-profile">Profile</label>
-            <select
-              id="document-profile"
-              value={activeProfile?.id ?? ""}
-              onChange={(event) => {
-                setActiveProfile(event.target.value);
-                update("event_id", "");
-              }}
-            >
-              <option value="">Both profiles</option>
-              {profiles.map((profile) => (
-                <option value={profile.id} key={profile.id}>
-                  {profile.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="filter-select">
             <label htmlFor="document-file-type">File type</label>
-            <select
+            <CustomSelect
               id="document-file-type"
               value={filters.file_type}
-              onChange={(event) => update("file_type", event.target.value)}
-            >
-              <option value="">All file types</option>
-              {documentFileTypes.map(([value, label]) => (
-                <option value={value} key={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => update("file_type", value)}
+              options={[
+                { value: "", label: "All file types" },
+                ...documentFileTypes.map(([value, label]) => ({
+                  value,
+                  label,
+                })),
+              ]}
+            />
           </div>
         </div>
         <div className="filter-footer">
@@ -318,42 +303,35 @@ export function DocumentsPage() {
             </summary>
             <div className="advanced-filters document-advanced-filters">
               <div className="filter-select">
-                <label htmlFor="document-category">Document category</label>
-                <select
+                <label htmlFor="document-category">Document type</label>
+                <CustomSelect
                   id="document-category"
                   value={filters.document_category}
-                  onChange={(event) =>
-                    update("document_category", event.target.value)
-                  }
-                >
-                  <option value="">All categories</option>
-                  {documentCategories.map((category) => (
-                    <option value={category} key={category}>
-                      {categoryLabel(category)}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => update("document_category", value)}
+                  options={[
+                    { value: "", label: "All document types" },
+                    ...documentCategories.map((category) => ({
+                      value: category,
+                      label: categoryLabel(category),
+                    })),
+                  ]}
+                />
               </div>
               <div className="filter-select">
                 <label htmlFor="document-event">Related event</label>
-                <select
+                <CustomSelect
                   id="document-event"
                   value={filters.event_id}
                   disabled={!eventOptions.data}
-                  onChange={(event) => update("event_id", event.target.value)}
-                >
-                  <option value="">All events</option>
-                  {availableEvents.map((event) => (
-                    <option value={event.id} key={event.id}>
-                      {event.title} ·{" "}
-                      {profiles.find(
-                        (profile) => profile.id === event.profile_id,
-                      )?.name ?? "Health profile"}
-                      {" · "}
-                      {new Date(event.event_date).toLocaleDateString()}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => update("event_id", value)}
+                  options={[
+                    { value: "", label: "All events" },
+                    ...availableEvents.map((event) => ({
+                      value: event.id,
+                      label: `${event.title} · ${formatDate(event.event_date)}`,
+                    })),
+                  ]}
+                />
                 {eventOptions.error && (
                   <p className="field-error" role="alert">
                     {eventOptions.error}{" "}
@@ -365,58 +343,30 @@ export function DocumentsPage() {
               </div>
               <div className="filter-select">
                 <label htmlFor="document-from">Uploaded from</label>
-                <input
+                <DatePicker
                   id="document-from"
-                  type="date"
                   value={filters.date_from}
-                  onChange={(event) => update("date_from", event.target.value)}
+                  optional
+                  onChange={(value) => update("date_from", value)}
                 />
               </div>
               <div className="filter-select">
                 <label htmlFor="document-to">Uploaded through</label>
-                <input
+                <DatePicker
                   id="document-to"
-                  type="date"
                   value={filters.date_to}
-                  onChange={(event) => update("date_to", event.target.value)}
+                  optional
+                  min={filters.date_from}
+                  onChange={(value) => update("date_to", value)}
                 />
               </div>
-              <fieldset className="filter-tags">
-                <legend>
-                  Event tags <span>Matches all selected tags</span>
-                </legend>
-                <div className="tag-options">
-                  {tags.map((tag) => (
-                    <label
-                      className={`tag-option ${filters.tag_ids.includes(tag.id) ? "selected" : ""}`}
-                      key={tag.id}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={filters.tag_ids.includes(tag.id)}
-                        disabled={
-                          !filters.tag_ids.includes(tag.id) &&
-                          filters.tag_ids.length >= 20
-                        }
-                        onChange={(event) =>
-                          update(
-                            "tag_ids",
-                            event.target.checked
-                              ? [...filters.tag_ids, tag.id]
-                              : filters.tag_ids.filter((id) => id !== tag.id),
-                          )
-                        }
-                      />
-                      {tag.name}
-                    </label>
-                  ))}
-                </div>
-                {!tags.length && !labelsLoading && (
-                  <p className="muted">
-                    Add tags to health events to use them here.
-                  </p>
-                )}
-              </fieldset>
+              <TagFilterPills
+                legend="Event tags"
+                items={tags}
+                selected={filters.tag_ids}
+                onChange={(ids) => update("tag_ids", ids.slice(0, 20))}
+                emptyText={labelsLoading ? undefined : "No tags are available."}
+              />
             </div>
           </details>
           <button
@@ -424,7 +374,6 @@ export function DocumentsPage() {
             disabled={!count}
             onClick={() => {
               setFilters(emptyDocumentFilters);
-              setActiveProfile("");
             }}
           >
             Clear filters
@@ -439,7 +388,7 @@ export function DocumentsPage() {
           <p className="field-error" role="alert">
             {labelError}{" "}
             <button className="text-link" onClick={reloadLabels}>
-              Retry tags
+              Retry
             </button>
           </p>
         )}
@@ -450,7 +399,7 @@ export function DocumentsPage() {
         )}
       </section>
       <DocumentResultsList
-        key={JSON.stringify([selected.query, selected.error])}
+        key={JSON.stringify([selected.query, selected.error, revision])}
         query={selected.query}
         queryError={selected.error}
       />

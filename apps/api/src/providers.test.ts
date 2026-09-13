@@ -22,6 +22,14 @@ test("providers validate contact fields and website schemes", () => {
   );
   assert.equal(providerSchema.safeParse({ name: "  " }).success, false);
   assert.equal(
+    providerSchema.safeParse({ name: "Doctor", rating: 0 }).success,
+    false,
+  );
+  assert.equal(
+    providerSchema.safeParse({ name: "Doctor", rating: 6 }).success,
+    false,
+  );
+  assert.equal(
     providerSchema.safeParse({ name: "Doctor", owner_id: id }).success,
     false,
   );
@@ -32,9 +40,11 @@ test("providers validate contact fields and website schemes", () => {
   });
   assert.equal(valid.name, "Dr Test");
   assert.equal(valid.phone, null);
+  assert.equal(valid.rating, null);
 });
 test("provider CRUD and related records use authenticated scope", async () => {
   let row: Provider | null = null;
+  let receivedProfile: string | undefined;
   const app = createApp({
     frontendOrigin: "http://localhost:3000",
     verifyToken: async (token) =>
@@ -56,7 +66,10 @@ test("provider CRUD and related records use authenticated scope", async () => {
         row = null;
         return true;
       },
-      providerEvents: async () => ({ events: [], total: 0 }),
+      providerEvents: async (_id, _page, profileId) => {
+        receivedProfile = profileId;
+        return { events: [], total: 0 };
+      },
     }),
   });
   await request(app).get("/api/v1/providers").expect(401);
@@ -70,23 +83,25 @@ test("provider CRUD and related records use authenticated scope", async () => {
     .set("Authorization", "Bearer other")
     .expect(404);
   await request(app)
-    .get(`/api/v1/providers/${id}/events`)
+    .get(`/api/v1/providers/${id}/events?profile_id=${id}`)
     .set("Authorization", "Bearer other")
     .expect(404);
   await request(app)
     .put(`/api/v1/providers/${id}`)
     .set("Authorization", "Bearer own")
-    .send({ name: "Dr Updated", notes: "Contact notes" })
+    .send({ name: "Dr Updated", notes: "Contact notes", rating: 4 })
     .expect(200);
+  assert.equal(row?.rating, 4);
   await request(app)
     .get(`/api/v1/providers/${id}/events?page=0`)
     .set("Authorization", "Bearer own")
     .expect(400);
   await request(app)
-    .get(`/api/v1/providers/${id}/events`)
+    .get(`/api/v1/providers/${id}/events?profile_id=${id}`)
     .set("Authorization", "Bearer own")
     .expect(200)
     .expect("Cache-Control", "no-store");
+  assert.equal(receivedProfile, id);
   await request(app)
     .delete(`/api/v1/providers/${id}`)
     .set("Authorization", "Bearer own")

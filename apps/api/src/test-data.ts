@@ -1,3 +1,4 @@
+import type { EventTypeDataAccess } from "./event-types.js";
 import type { EpisodeDataAccess } from "./episodes.js";
 // Shared fixtures for API tests; this module is excluded from production output.
 import type { EventDataAccess } from "./events.js";
@@ -5,15 +6,20 @@ import type { ProviderDataAccess } from "./providers.js";
 import type { UserDataAccess } from "./data.js";
 import type { AttachmentDataAccess } from "./attachments.js";
 import type { DocumentDataAccess } from "./documents.js";
-export const emptyEventData: EpisodeDataAccess &
+export const emptyEventData: EventTypeDataAccess &
+  EpisodeDataAccess &
   EventDataAccess &
   ProviderDataAccess &
   AttachmentDataAccess &
   DocumentDataAccess &
   Pick<UserDataAccess, "updateProfile" | "updateLabel" | "deleteLabel"> = {
+  listEventTypes: async () => [],
+  saveEventType: async () => null,
+  archiveEventType: async () => false,
   listEpisodes: async () => [],
   getEpisode: async () => null,
   saveEpisode: async () => null,
+  linkEventToEpisode: async () => false,
   deleteEpisode: async () => false,
   updateProfile: async () => null,
   updateLabel: async () => null,

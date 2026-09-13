@@ -1,9 +1,8 @@
 import type { EventSummary } from "./events";
-export type Label = { id: string; name: string };
+export type Label = { id: string; name: string; usage_count?: number };
 export type TrackerFilters = {
   provider_id?: string;
   event_type: string;
-  category_id: string;
   tag_ids: string[];
   date_from: string;
   date_to: string;
@@ -12,7 +11,6 @@ export type TrackerFilters = {
 export const emptyFilters: TrackerFilters = {
   provider_id: "",
   event_type: "",
-  category_id: "",
   tag_ids: [],
   date_from: "",
   date_to: "",
@@ -46,7 +44,6 @@ export function filterQuery(filters: TrackerFilters, profileId = "") {
   if (filters.provider_id) query.provider_id = filters.provider_id;
   if (profileId) query.profile_id = profileId;
   if (filters.event_type) query.event_type = filters.event_type;
-  if (filters.category_id) query.category_id = filters.category_id;
   if (filters.tag_ids.length) query.tag_ids = filters.tag_ids;
   if (filters.q.trim()) query.q = filters.q.trim();
   if (start) query.date_from = start.toISOString();

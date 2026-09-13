@@ -22,6 +22,12 @@ test("private attachments enforce database and Storage isolation and upload cons
       "202609120006_vaccinations.sql",
       "202609120007_documents.sql",
       "202609120008_episodes.sql",
+      "202609120009_event_types.sql",
+      "202609120010_pastel_event_types.sql",
+      "202609120011_cool_event_type_colors.sql",
+      "202609130012_link_event_to_episode.sql",
+      "202609130013_episode_list_events.sql",
+      "202609130014_provider_ratings.sql",
     ])
       await db.exec(
         await readFile(
@@ -367,6 +373,21 @@ test("private attachments enforce database and Storage isolation and upload cons
         "insert into public.providers(id,name,specialty) values($1,'Dr Test','General practice')",
         [uid(81)],
       );
+      await db.query("update public.providers set rating=4 where id=$1", [
+        uid(81),
+      ]);
+      assert.equal(
+        (
+          await db.query("select rating from public.providers where id=$1", [
+            uid(81),
+          ])
+        ).rows[0].rating,
+        4,
+      );
+      await assert.rejects(
+        db.query("update public.providers set rating=6 where id=$1", [uid(81)]),
+        { code: "23514" },
+      );
       const profile = (await db.query("select id from public.profiles limit 1"))
         .rows[0].id;
       const input = {
@@ -565,6 +586,61 @@ test("private attachments enforce database and Storage isolation and upload cons
         ])
       ).rows[0].result;
       assert.equal(resolved.status, "resolved");
+      const linkedEvent = (
+        await db.query(
+          "insert into public.health_events(profile_id,event_type,title,event_date) values($1,'Other','Linked later',now()) returning id",
+          [event.profile_id],
+        )
+      ).rows[0].id;
+      assert.equal(
+        (
+          await db.query(
+            "select public.link_event_to_episode($1,$2) as linked",
+            [episodeId, linkedEvent],
+          )
+        ).rows[0].linked,
+        true,
+      );
+      assert.equal(
+        (
+          await db.query(
+            "select public.link_event_to_episode($1,$2) as linked",
+            [episodeId, linkedEvent],
+          )
+        ).rows[0].linked,
+        true,
+        "linking the same event is idempotent",
+      );
+      assert.equal(
+        (
+          await db.query("select public.episode_document($1) as result", [
+            episodeId,
+          ])
+        ).rows[0].result.events.length,
+        2,
+      );
+      const listedEpisodes = (
+        await db.query("select public.list_health_episodes($1) as result", [
+          event.profile_id,
+        ])
+      ).rows[0].result;
+      assert.equal(listedEpisodes.length, 1);
+      assert.equal(listedEpisodes[0].events.length, 2);
+      const otherProfileEvent = (
+        await db.query(
+          "insert into public.health_events(profile_id,event_type,title,event_date) values($1,'Other','Wrong profile',now()) returning id",
+          [otherProfile],
+        )
+      ).rows[0].id;
+      assert.equal(
+        (
+          await db.query(
+            "select public.link_event_to_episode($1,$2) as linked",
+            [episodeId, otherProfileEvent],
+          )
+        ).rows[0].linked,
+        false,
+      );
       await assert.rejects(
         db.query("update public.health_events set profile_id=$1 where id=$2", [
           otherProfile,
@@ -585,6 +661,20 @@ test("private attachments enforce database and Storage isolation and upload cons
           0,
         );
         assert.equal((await timeline({}, "episode")).total, 0);
+        assert.deepEqual(
+          (await db.query("select public.list_health_episodes(null) as result"))
+            .rows[0].result,
+          [],
+        );
+        assert.equal(
+          (
+            await db.query(
+              "select public.link_event_to_episode($1,$2) as linked",
+              [episodeId, uid(12)],
+            )
+          ).rows[0].linked,
+          false,
+        );
         assert.equal(
           (
             await db.query("select public.episode_document($1) as result", [
@@ -628,6 +718,79 @@ test("private attachments enforce database and Storage isolation and upload cons
       assert.equal(
         (await db.query("select * from public.health_episode_events")).rows
           .length,
+        0,
+      );
+    });
+
+    let customType;
+    await run(uid(1), async () => {
+      const defaults = (await db.query("select * from public.event_types"))
+        .rows;
+      assert.equal(defaults.length, 8);
+      customType = (
+        await db.query(
+          "insert into public.event_types(name,color) values('Custom check','#249E94') returning *",
+        )
+      ).rows[0];
+      const profile = (await db.query("select id from public.profiles limit 1"))
+        .rows[0].id;
+      const event = (
+        await db.query(
+          "insert into public.health_events(profile_id,event_type,title,event_date) values($1,$2,'Custom event',now()) returning id",
+          [profile, customType.key],
+        )
+      ).rows[0];
+      await db.query(
+        "update public.event_types set name='Renamed',color='#005461' where id=$1",
+        [customType.id],
+      );
+      assert.equal(
+        (
+          await db.query(
+            "select event_type from public.health_events where id=$1",
+            [event.id],
+          )
+        ).rows[0].event_type,
+        customType.key,
+      );
+      await db.query(
+        "update public.event_types set archived=true where id=$1",
+        [customType.id],
+      );
+      await db.query(
+        "update public.health_events set notes='Kept' where id=$1",
+        [event.id],
+      );
+      await assert.rejects(
+        db.query(
+          "insert into public.health_events(profile_id,event_type,title,event_date) values($1,$2,'New',now())",
+          [profile, customType.key],
+        ),
+        { code: "23514" },
+      );
+      await assert.rejects(
+        db.query(
+          "insert into public.event_types(name,color) values('Bad','javascript:bad')",
+        ),
+        { code: "23514" },
+      );
+    });
+    await run(uid(2), async () => {
+      assert.equal(
+        (
+          await db.query("select * from public.event_types where id=$1", [
+            customType.id,
+          ])
+        ).rows.length,
+        0,
+      );
+      assert.equal(
+        (
+          await db.query(
+            "update public.event_types set name='Foreign' where id=$1 returning id",
+            [customType.id],
+          )
+        ).rows.length,
         0,
       );
     });

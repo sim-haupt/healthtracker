@@ -1,6 +1,8 @@
 "use client";
+import { EventTypeBadge } from "../event-types";
 import { LoadingState, useToast } from "../ui/feedback";
-import { ProfileAvatar } from "../ui/profile-avatar";
+import { ProfileIdentity } from "../ui/profile-avatar";
+import { TagPill } from "../ui/labels";
 import {
   Stethoscope,
   HeartPulse,
@@ -16,11 +18,12 @@ import { useRef, useState } from "react";
 import { ArrowLeft, Pencil, Trash2, CalendarDays } from "lucide-react";
 import { apiFetch, ApiError } from "@/lib/api";
 import { dateLabel, fieldLabel } from "@/lib/events";
+import { formatDate } from "@/lib/date-format";
 import { useProfiles } from "../app-shell";
 import { useEvent } from "./use-event";
 export function EventDetail({ id }: { id: string }) {
   const { event, error, retry } = useEvent(id);
-  const { profiles, setActiveProfile } = useProfiles();
+  const { profiles } = useProfiles();
   const router = useRouter();
   const toast = useToast();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -36,13 +39,12 @@ export function EventDetail({ id }: { id: string }) {
         method: "DELETE",
       });
       toast("Event deleted.");
-      setActiveProfile(event.profile_id);
       dialog.current?.close();
-      router.replace("/events");
+      router.replace("/timeline");
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 404) {
         dialog.current?.close();
-        router.replace("/events");
+        router.replace("/timeline");
         return;
       }
       setDeleteError(
@@ -60,8 +62,8 @@ export function EventDetail({ id }: { id: string }) {
         <button className="button secondary-button" onClick={retry}>
           Try again
         </button>
-        <Link href="/events" className="text-link">
-          Back to events
+        <Link href="/timeline" className="text-link">
+          Back to timeline
         </Link>
       </section>
     );
@@ -69,31 +71,40 @@ export function EventDetail({ id }: { id: string }) {
   const profile = profiles.find((item) => item.id === event.profile_id);
   return (
     <>
-      <Link href="/events" className="text-link event-back">
-        <ArrowLeft size={16} /> Back to events
+      <Link href="/timeline" className="text-link event-back">
+        <ArrowLeft size={16} /> Back to timeline
       </Link>
       <div className="page-heading event-detail-heading">
         <div>
-          <p className="eyebrow">{event.event_type.toUpperCase()}</p>
+          <p className="eyebrow">
+            <EventTypeBadge type={event.event_type} />
+          </p>
           <h1>{event.title}</h1>
-          <p>{profile?.name ?? "Health profile"}</p>
+          <ProfileIdentity
+            name={profile?.name ?? "Health profile"}
+            avatar={profile?.avatar}
+          />
         </div>
         <div className="event-actions">
           <Link
-            className="button secondary-button"
+            className="icon-button"
             href={`/events/${event.id}/edit`}
+            aria-label="Edit event"
+            title="Edit"
           >
-            <Pencil size={16} /> Edit
+            <Pencil size={17} aria-hidden="true" />
           </Link>
           <button
-            className="button danger-outline"
+            className="icon-button danger-icon"
+            aria-label="Delete event"
+            title="Delete"
             disabled={attachmentBusy}
             onClick={() => {
               setDeleteError("");
               dialog.current?.showModal();
             }}
           >
-            <Trash2 size={16} /> Delete
+            <Trash2 size={17} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -116,12 +127,11 @@ export function EventDetail({ id }: { id: string }) {
         <dl className="basic-grid">
           <div>
             <dt>Health profile</dt>
-            <dd className="person-line">
-              <ProfileAvatar
-                name={profile?.name ?? "Profile"}
+            <dd>
+              <ProfileIdentity
+                name={profile?.name ?? "Health profile"}
                 avatar={profile?.avatar}
               />
-              {profile?.name ?? "Health profile"}
             </dd>
           </div>
           <div>
@@ -189,9 +199,7 @@ export function EventDetail({ id }: { id: string }) {
                 <dd>
                   {event.next_dose_date ? (
                     <time dateTime={event.next_dose_date}>
-                      {new Date(
-                        event.next_dose_date + "T12:00:00",
-                      ).toLocaleDateString(undefined, { dateStyle: "medium" })}
+                      {formatDate(event.next_dose_date)}
                     </time>
                   ) : (
                     "Not recorded"
@@ -201,15 +209,10 @@ export function EventDetail({ id }: { id: string }) {
             </dl>
           </div>
         )}
-        {event.category || event.tags?.length ? (
+        {event.tags?.length ? (
           <div className="event-labels">
-            {event.category && (
-              <span className="category-pill">{event.category.name}</span>
-            )}
             {event.tags?.map((tag) => (
-              <span className="tag-pill" key={tag.id}>
-                {tag.name}
-              </span>
+              <TagPill name={tag.name} key={tag.id} />
             ))}
           </div>
         ) : null}

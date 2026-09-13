@@ -30,6 +30,7 @@ export type EpisodeDataAccess = {
     id: string | null,
     input: EpisodeInput,
   ) => Promise<Episode | null>;
+  linkEventToEpisode: (episodeId: string, eventId: string) => Promise<boolean>;
   deleteEpisode: (id: string) => Promise<boolean>;
 };
 export function episodeRouter() {
@@ -37,6 +38,11 @@ export function episodeRouter() {
   router.param("id", (_req, _res, next, id) => {
     if (!z.uuid().safeParse(id).success)
       throw new EventDataError(400, "Invalid episode ID.");
+    next();
+  });
+  router.param("eventId", (_req, _res, next, id) => {
+    if (!z.uuid().safeParse(id).success)
+      throw new EventDataError(400, "Invalid event ID.");
     next();
   });
   router.get("/", async (req, res) => {
@@ -76,6 +82,14 @@ export function episodeRouter() {
       if (!episode) throw new EventDataError(404, "Episode not found.");
       res.status(method === "post" ? 201 : 200).json({ episode });
     });
+  router.post("/:id/events/:eventId", async (req, res) => {
+    const linked = await (res.locals.data as UserDataAccess).linkEventToEpisode(
+      String(req.params.id),
+      String(req.params.eventId),
+    );
+    if (!linked) throw new EventDataError(404, "Episode or event not found.");
+    res.status(204).end();
+  });
   router.delete("/:id", async (req, res) => {
     if (
       !(await (res.locals.data as UserDataAccess).deleteEpisode(

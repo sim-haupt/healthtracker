@@ -60,7 +60,7 @@ const date = (days: number) => {
 const day = (days: number) => date(days).slice(0, 10);
 const provider = randomUUID();
 await db.query(
-  "insert into public.providers(id,name,specialty,notes) values($1,'Dr Morgan Lee','General practice','Synthetic demo provider')",
+  "insert into public.providers(id,name,specialty,rating,notes) values($1,'Dr Morgan Lee','General practice',5,'Synthetic demo provider')",
   [provider],
 );
 const tag = (
@@ -278,12 +278,10 @@ local.post("/auth/v1/token", express.json(), (req, res) => {
       req.body.email !== email ||
       req.body.password !== password)
   ) {
-    res
-      .status(400)
-      .json({
-        error: "invalid_grant",
-        error_description: "Invalid demo credentials",
-      });
+    res.status(400).json({
+      error: "invalid_grant",
+      error_description: "Invalid demo credentials",
+    });
     return;
   }
   res.json(session());
@@ -328,9 +326,11 @@ function identifier(value: string) {
   return '"' + value + '"';
 }
 const tables = new Set([
+  "event_types",
   "app_users",
   "profiles",
   "health_events",
+  "health_event_tags",
   "providers",
   "attachments",
   "categories",
@@ -542,8 +542,13 @@ if (process.argv.includes("--check")) {
     tx.query("select public.search_health_documents('{}') as data"),
   );
   if (docs.rows[0].data.total !== 1) throw new Error("Demo document missing.");
+  const demoProvider: any = await scoped((tx) =>
+    tx.query("select rating from public.providers limit 1"),
+  );
+  if (demoProvider.rows[0]?.rating !== 5)
+    throw new Error("Demo provider rating missing.");
   console.log(
-    "Demo data verified: 2 profiles, 9 events, 2 episodes, 1 document.",
+    "Demo data verified: 2 profiles, 9 events, 2 episodes, 1 document, 1 rated provider.",
   );
   await db.close();
   process.exit(0);

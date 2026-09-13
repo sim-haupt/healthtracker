@@ -1,56 +1,180 @@
 "use client";
 import { useState } from "react";
+import { Check, Plus, X } from "lucide-react";
+import type { Label } from "@/lib/tracker";
 import { useTracker } from "./context";
+
+function LabelPicker({
+  items,
+  selected,
+  onSelect,
+  onCreate,
+  disabled,
+  error,
+}: {
+  items: Label[];
+  selected: string[];
+  onSelect: (id: string) => void;
+  onCreate: (name: string) => Promise<boolean>;
+  disabled: boolean;
+  error?: string;
+}) {
+  const [query, setQuery] = useState("");
+  const term = query.trim();
+  const normalized = term.toLocaleLowerCase();
+  const exact = items.find(
+    (item) => item.name.toLocaleLowerCase() === normalized,
+  );
+  const sorted = [...items].sort(
+    (a, b) =>
+      (b.usage_count ?? 0) - (a.usage_count ?? 0) ||
+      a.name.localeCompare(b.name),
+  );
+  const matches = sorted.filter((item) =>
+    item.name.toLocaleLowerCase().includes(normalized),
+  );
+  const full = selected.length >= 20;
+  const id = "event-tags";
+  function choose(itemId: string) {
+    onSelect(itemId);
+    setQuery("");
+  }
+  async function create() {
+    if (await onCreate(term)) setQuery("");
+  }
+  return (
+    <div className="form-field label-picker">
+      <label htmlFor={id}>Tags</label>
+      {selected.length > 0 && (
+        <div className="label-pills" aria-label="Selected tags">
+          {selected.map((itemId) => (
+            <button
+              key={itemId}
+              type="button"
+              className="label-pill selected"
+              disabled={disabled}
+              aria-label={`Remove ${items.find((item) => item.id === itemId)?.name ?? "tag"}`}
+              onClick={() => onSelect(itemId)}
+            >
+              {items.find((item) => item.id === itemId)?.name ?? "Selected"}
+              <X size={13} aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+      )}
+      <input
+        id={id}
+        value={query}
+        maxLength={100}
+        autoComplete="off"
+        placeholder="Search or create…"
+        disabled={disabled}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${id}-error` : undefined}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setQuery("");
+          if (e.key === "Enter") {
+            e.preventDefault();
+            if (!term || disabled) return;
+            if (exact) {
+              if (!full || selected.includes(exact.id)) choose(exact.id);
+            } else if (!full) void create();
+          }
+        }}
+      />
+      {term && (
+        <div className="label-search-results" aria-label="Tag search results">
+          {matches.map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              disabled={disabled || (full && !selected.includes(item.id))}
+              aria-pressed={selected.includes(item.id)}
+              onClick={() => choose(item.id)}
+            >
+              {item.name}
+              {selected.includes(item.id) && (
+                <Check size={14} aria-hidden="true" />
+              )}
+            </button>
+          ))}
+          {!exact && (
+            <button
+              type="button"
+              disabled={disabled || full}
+              onClick={() => void create()}
+            >
+              <Plus size={14} aria-hidden="true" /> Create “{term}”
+            </button>
+          )}
+        </div>
+      )}
+      {items.length > 0 && (
+        <div className="common-labels">
+          <span className="muted">Most used</span>
+          <div className="label-pills">
+            {sorted.slice(0, 10).map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                className={`label-pill ${selected.includes(item.id) ? "selected" : ""}`}
+                aria-pressed={selected.includes(item.id)}
+                disabled={disabled || (full && !selected.includes(item.id))}
+                onClick={() => choose(item.id)}
+              >
+                {selected.includes(item.id) && (
+                  <Check size={13} aria-hidden="true" />
+                )}
+                {item.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {full && (
+        <p className="form-hint">
+          20 tags selected. Remove a tag to add another.
+        </p>
+      )}
+      {error && (
+        <p id={`${id}-error`} className="field-error">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function EventLabelEditor({
-  categoryId,
   tagIds,
-  onCategory,
   onTags,
   fieldErrors = {},
   onBusyChange,
 }: {
   fieldErrors?: Record<string, string>;
   onBusyChange: (busy: boolean) => void;
-  categoryId: string;
   tagIds: string[];
-  onCategory: (id: string) => void;
   onTags: (ids: string[]) => void;
 }) {
-  const {
-    categories,
-    tags,
-    createLabel,
-    labelError,
-    labelsLoading,
-    reloadLabels,
-  } = useTracker();
-  const [categoryName, setCategoryName] = useState(""),
-    [tagName, setTagName] = useState("");
-  const [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
-  async function create(kind: "categories" | "tags") {
-    const name = (kind === "tags" ? tagName : categoryName).trim();
-    if (!name) {
-      setError("Enter a name first.");
-      return;
-    }
-    if (busy) return;
+  const { tags, createTag, labelError, labelsLoading, reloadLabels } =
+    useTracker();
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function create(name: string) {
+    if (busy || !name || tagIds.length >= 20) return false;
     setBusy(true);
     onBusyChange(true);
     setError("");
     try {
-      const label = await createLabel(kind, name);
-      if (kind === "tags") {
-        onTags([...new Set([...tagIds, label.id])]);
-        setTagName("");
-      } else {
-        onCategory(label.id);
-        setCategoryName("");
-      }
+      const label = await createTag(name);
+      onTags([...new Set([...tagIds, label.id])]);
+      return true;
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Unable to create the label.",
       );
+      return false;
     } finally {
       setBusy(false);
       onBusyChange(false);
@@ -58,8 +182,7 @@ export function EventLabelEditor({
   }
   return (
     <section className="event-label-editor">
-      <h2>Category & tags</h2>
-
+      <h2>Tags</h2>
       {labelError && (
         <p className="field-error" role="alert">
           {labelError}{" "}
@@ -68,123 +191,28 @@ export function EventLabelEditor({
           </button>
         </p>
       )}
-      <div className="form-field">
-        <label htmlFor="event-category">Category</label>
-        <select
-          id="event-category"
-          aria-invalid={!!fieldErrors.category_id}
-          aria-describedby={
-            fieldErrors.category_id ? "category_id-error" : undefined
-          }
-          value={categoryId}
-          onChange={(e) => onCategory(e.target.value)}
-          disabled={labelsLoading}
-        >
-          <option value="">No category</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      {fieldErrors.category_id && (
-        <p id="category_id-error" className="field-error">
-          {fieldErrors.category_id}
+      {labelsLoading && (
+        <p className="muted" role="status">
+          Loading tags…
         </p>
       )}
-      <details className="create-label">
-        <summary>Create a category</summary>
-        <div className="inline-create">
-          <label className="sr-only" htmlFor="new-category-name">
-            New category name
-          </label>
-          <input
-            id="new-category-name"
-            value={categoryName}
-            maxLength={100}
-            placeholder="Category name"
-            onChange={(e) => setCategoryName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void create("categories");
-              }
-            }}
-          />
-          <button
-            className="button secondary-button"
-            type="button"
-            disabled={busy || !categoryName.trim()}
-            onClick={() => void create("categories")}
-          >
-            Add category
-          </button>
-        </div>
-      </details>
-      <fieldset className="filter-tags">
-        <legend>
-          Tags <span>Choose up to 20</span>
-        </legend>
-        <div className="tag-options">
-          {tags.map((tag) => (
-            <label
-              className={`tag-option ${tagIds.includes(tag.id) ? "selected" : ""}`}
-              key={tag.id}
-            >
-              <input
-                type="checkbox"
-                checked={tagIds.includes(tag.id)}
-                disabled={
-                  busy || (!tagIds.includes(tag.id) && tagIds.length >= 20)
-                }
-                onChange={(e) =>
-                  onTags(
-                    e.target.checked
-                      ? [...tagIds, tag.id]
-                      : tagIds.filter((id) => id !== tag.id),
-                  )
-                }
-              />
-              {tag.name}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      {fieldErrors.tag_ids && (
-        <p className="field-error" role="alert">
-          {fieldErrors.tag_ids}
-        </p>
-      )}
-      <div className="inline-create">
-        <label className="sr-only" htmlFor="new-tag-name">
-          New tag name
-        </label>
-        <input
-          id="new-tag-name"
-          value={tagName}
-          maxLength={100}
-          placeholder="Create your own tag"
-          onChange={(e) => setTagName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              if (tagIds.length < 20) void create("tags");
-            }
-          }}
-        />
-        <button
-          className="button secondary-button"
-          type="button"
-          disabled={busy || !tagName.trim() || tagIds.length >= 20}
-          onClick={() => void create("tags")}
-        >
-          Add tag
-        </button>
-      </div>
+      <LabelPicker
+        items={tags}
+        selected={tagIds}
+        onSelect={(id) =>
+          onTags(
+            tagIds.includes(id)
+              ? tagIds.filter((t) => t !== id)
+              : [...tagIds, id],
+          )
+        }
+        onCreate={create}
+        disabled={busy || labelsLoading || !!labelError}
+        error={fieldErrors.tag_ids}
+      />
       {busy && (
         <p role="status" className="muted">
-          Saving label…
+          Saving…
         </p>
       )}
       {error && (

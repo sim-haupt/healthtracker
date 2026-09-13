@@ -12,6 +12,8 @@ import {
   type DocumentCategory,
 } from "@/lib/attachments";
 import { categoryLabel } from "@/lib/documents";
+import { DocumentCategoryPill } from "../ui/labels";
+import { CustomSelect } from "../ui/pickers";
 
 function AttachmentItem({
   item,
@@ -99,8 +101,8 @@ function AttachmentItem({
       )}
       <div className="attachment-info">
         <strong>{item.file_name}</strong>
-        <span className="category-pill attachment-category">
-          {categoryLabel(item.document_category)}
+        <span className="attachment-category">
+          <DocumentCategoryPill name={categoryLabel(item.document_category)} />
         </span>
         <span>
           {item.file_name.split(".").pop()?.toUpperCase()} ·{" "}
@@ -132,13 +134,13 @@ function AttachmentItem({
           {loading ? "Downloading…" : "Download"}
         </button>
         <button
-          className="button danger-outline"
+          className="icon-button danger-icon"
           disabled={disabled}
           onClick={remove}
           aria-label={`Delete ${item.file_name}`}
+          title="Delete"
         >
-          <Trash2 size={16} />
-          <span className="sr-only">Delete</span>
+          <Trash2 size={16} aria-hidden="true" />
         </button>
       </div>
       {isImage && (
@@ -414,21 +416,17 @@ export function EventAttachments({
         <h2 id="attachment-upload-title">Upload document</h2>
         <p className="form-hint">{pendingFile?.name}</p>
         <div className="field">
-          <label htmlFor="attachment-category">Category</label>
-          <select
+          <label htmlFor="attachment-category">Document type</label>
+          <CustomSelect
             id="attachment-category"
             value={documentCategory}
             disabled={busy}
-            onChange={(event) =>
-              setDocumentCategory(event.target.value as DocumentCategory)
-            }
-          >
-            {documentCategories.map((category) => (
-              <option value={category} key={category}>
-                {categoryLabel(category)}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => setDocumentCategory(value as DocumentCategory)}
+            options={documentCategories.map((category) => ({
+              value: category,
+              label: categoryLabel(category),
+            }))}
+          />
         </div>
         <div className="field">
           <label htmlFor="attachment-description">

@@ -1,3 +1,4 @@
+import type { EventTypeDataAccess, ManagedEventType } from "./event-types.js";
 import type { EpisodeDataAccess, Episode } from "./episodes.js";
 import type { ProviderDataAccess } from "./providers.js";
 import type { DocumentDataAccess, HealthDocument } from "./documents.js";
@@ -16,7 +17,8 @@ export type HealthProfile = {
   avatar: string | null;
   created_at: string;
 };
-export type UserDataAccess = EpisodeDataAccess &
+export type UserDataAccess = EventTypeDataAccess &
+  EpisodeDataAccess &
   EventDataAccess &
   ProviderDataAccess &
   AttachmentDataAccess &
@@ -104,18 +106,47 @@ export function createUserDataAccess(
     return true;
   }
   return {
+    async listEventTypes() {
+      const { data, error } = await client
+        .from("event_types")
+        .select("id,key,name,color,archived")
+        .order("name");
+      if (error) throw new EventDataError(503, "Unable to load event types.");
+      return data as ManagedEventType[];
+    },
+    async saveEventType(id, input) {
+      const q = id
+        ? client.from("event_types").update(input).eq("id", id)
+        : client.from("event_types").insert(input);
+      const { data, error } = await q
+        .select("id,key,name,color,archived")
+        .maybeSingle();
+      if (error) {
+        if (error.code === "23505")
+          throw new EventDataError(
+            409,
+            "An event type with this name already exists.",
+          );
+        throw new EventDataError(503, "Unable to save event type.");
+      }
+      return data as ManagedEventType | null;
+    },
+    async archiveEventType(id) {
+      const { data, error } = await client
+        .from("event_types")
+        .update({ archived: true })
+        .eq("id", id)
+        .select("id")
+        .maybeSingle();
+      if (error) throw new EventDataError(503, "Unable to remove event type.");
+      return !!data;
+    },
     async listEpisodes(profileId) {
-      let query = client
-        .from("health_episodes")
-        .select(
-          "id,profile_id,title,start_date,end_date,status,description,created_at",
-        )
-        .order("start_date", { ascending: false })
-        .order("id");
-      if (profileId) query = query.eq("profile_id", profileId);
-      const { data, error } = await query;
+      const { data, error } = await client.rpc("list_health_episodes", {
+        p_profile_id: profileId ?? null,
+      });
       if (error) throw new EventDataError(503, "Unable to load episodes.");
-      return data.map((e) => ({ ...e, events: [] })) as Episode[];
+      return data as Episode[];
     },
     async getEpisode(id) {
       const { data, error } = await client.rpc("episode_document", {
@@ -140,6 +171,15 @@ export function createUserDataAccess(
         throw new EventDataError(503, "Unable to save episode.");
       }
       return data as Episode | null;
+    },
+    async linkEventToEpisode(episodeId, eventId) {
+      const { data, error } = await client.rpc("link_event_to_episode", {
+        p_episode_id: episodeId,
+        p_event_id: eventId,
+      });
+      if (error)
+        throw new EventDataError(503, "Unable to link event to episode.");
+      return data === true;
     },
     async deleteEpisode(id) {
       const { data, error } = await client
@@ -204,7 +244,7 @@ export function createUserDataAccess(
       const { data, error } = await client
         .from("providers")
         .select(
-          "id,name,specialty,phone,email,address,website,notes,created_at",
+          "id,name,specialty,phone,email,address,website,rating,notes,created_at",
         )
         .order("name");
       if (error)
@@ -215,7 +255,7 @@ export function createUserDataAccess(
       const { data, error } = await client
         .from("providers")
         .select(
-          "id,name,specialty,phone,email,address,website,notes,created_at",
+          "id,name,specialty,phone,email,address,website,rating,notes,created_at",
         )
         .eq("id", id)
         .maybeSingle();
@@ -228,7 +268,7 @@ export function createUserDataAccess(
         : client.from("providers").insert(input);
       const { data, error } = await query
         .select(
-          "id,name,specialty,phone,email,address,website,notes,created_at",
+          "id,name,specialty,phone,email,address,website,rating,notes,created_at",
         )
         .maybeSingle();
       if (error) throw new EventDataError(503, "Unable to save this provider.");
@@ -245,14 +285,16 @@ export function createUserDataAccess(
         throw new EventDataError(503, "Unable to delete this provider.");
       return data !== null;
     },
-    async providerEvents(id, page) {
-      const { data, error, count } = await client
+    async providerEvents(id, page, profileId) {
+      let query = client
         .from("health_events")
         .select(
           "id,profile_id,provider_id,event_type,title,event_date,end_date,description,symptoms,diagnosis,treatment,prescription,doctor,location,notes,created_at,updated_at",
           { count: "exact" },
         )
-        .eq("provider_id", id)
+        .eq("provider_id", id);
+      if (profileId) query = query.eq("profile_id", profileId);
+      const { data, error, count } = await query
         .order("event_date", { ascending: false })
         .order("id", { ascending: false })
         .range((page - 1) * 30, page * 30 - 1);
@@ -324,7 +366,29 @@ export function createUserDataAccess(
         .select("id,name")
         .order("name");
       if (error) eventError(error);
-      return data!;
+      const column = kind === "categories" ? "category_id" : "tag_id";
+      const table =
+        kind === "categories" ? "health_events" : "health_event_tags";
+      const counts = new Map<string, number>();
+      for (let offset = 0; ; offset += 1000) {
+        const { data: rows, error: countError } = await client
+          .from(table)
+          .select(column)
+          .order(kind === "categories" ? "id" : "event_id")
+          .range(offset, offset + 999);
+        // Popularity is an enhancement. Labels should remain usable if the
+        // supporting count query is temporarily unavailable.
+        if (countError) break;
+        for (const row of rows ?? []) {
+          const id = (row as unknown as Record<string, string>)[column];
+          if (id) counts.set(id, (counts.get(id) ?? 0) + 1);
+        }
+        if (!rows || rows.length < 1000) break;
+      }
+      return data!.map((label) => ({
+        ...label,
+        usage_count: counts.get(label.id) ?? 0,
+      }));
     },
     async createLabel(kind, name) {
       const { data, error } = await client
