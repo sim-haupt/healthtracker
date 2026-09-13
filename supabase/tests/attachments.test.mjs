@@ -28,6 +28,7 @@ test("private attachments enforce database and Storage isolation and upload cons
       "202609130012_link_event_to_episode.sql",
       "202609130013_episode_list_events.sql",
       "202609130014_provider_ratings.sql",
+      "202609130015_monochrome_green_scale.sql",
     ])
       await db.exec(
         await readFile(

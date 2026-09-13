@@ -1,12 +1,12 @@
 @import "tailwindcss";
 :root {
   --deep: #005461;
-  --teal: #0c7779;
-  --accent: #249e94;
-  --mint: #3bc1a8;
+  --teal: var(--deep);
+  --accent: color-mix(in srgb, var(--deep) 68%, white);
+  --mint: color-mix(in srgb, var(--deep) 42%, white);
   --ink: #374151;
   --muted: #6b7280;
-  --surface-tint: color-mix(in srgb, var(--mint) 7%, white);
+  --surface-tint: color-mix(in srgb, var(--deep) 6%, white);
   --line: color-mix(in srgb, var(--accent) 23%, white);
   --control-border: color-mix(in srgb, var(--teal) 58%, white);
   --danger: #b42318;
@@ -3911,9 +3911,9 @@ h3 {
   background: var(--surface-tint);
 }
 .episode-status-active {
-  border-color: color-mix(in srgb, #249e94 42%, white);
-  background: color-mix(in srgb, #3bc1a8 16%, white);
-  color: #005461;
+  border-color: color-mix(in srgb, var(--deep) 28%, white);
+  background: color-mix(in srgb, var(--deep) 7%, white);
+  color: var(--deep);
 }
 .episode-status-resolved {
   border-color: #c9c9eb;
@@ -4465,4 +4465,69 @@ h3 {
   .label-pill:is(button) {
     min-height: 44px;
   }
+}
+
+/* Dark application chrome. */
+.sidebar,
+.header {
+  background: var(--deep);
+}
+.sidebar {
+  border-right-color: color-mix(in srgb, var(--deep) 78%, white);
+}
+.header {
+  border-bottom-color: color-mix(in srgb, var(--deep) 78%, white);
+}
+.brand,
+.brand:hover {
+  color: white;
+}
+.sidebar .brand-mark {
+  background: transparent;
+  color: var(--mint);
+}
+.sidebar .nav-item {
+  color: color-mix(in srgb, var(--deep) 14%, white);
+}
+.sidebar .nav-item:hover {
+  background: color-mix(in srgb, var(--deep) 90%, white);
+  color: white;
+}
+.sidebar .nav-item.active,
+.sidebar .nav-item.active:hover {
+  background: color-mix(in srgb, var(--deep) 78%, white);
+  color: white;
+}
+.header-context,
+.header-context strong {
+  color: white;
+}
+.header .mobile-menu,
+.sidebar .mobile-close {
+  color: white;
+}
+.header .mobile-menu:hover,
+.sidebar .mobile-close:hover {
+  background: color-mix(in srgb, white 12%, var(--deep));
+}
+.header .profile-control .portrait {
+  background: white;
+  color: var(--deep);
+}
+.header .profile-avatar-group .portrait {
+  border-color: var(--deep);
+}
+.header .profile-control .custom-select-trigger {
+  color: white;
+}
+.header .profile-control .custom-select-trigger:hover,
+.header .profile-control .custom-select-trigger[aria-expanded="true"] {
+  background: color-mix(in srgb, white 10%, var(--deep));
+}
+.header .profile-control .custom-select-trigger svg {
+  color: color-mix(in srgb, var(--deep) 14%, white);
+}
+.sidebar :where(a, button):focus-visible,
+.header :where(a, button):focus-visible {
+  outline-color: white;
 }

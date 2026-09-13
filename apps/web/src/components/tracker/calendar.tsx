@@ -134,7 +134,7 @@ export function HealthCalendar() {
                               "--event-color":
                                 typeOptions.types.find(
                                   (t) => t.key === event.event_type,
-                                )?.color ?? "#0C7779",
+                                )?.color ?? "#005461",
                             } as CSSProperties
                           }
                           href={`/events/${event.id}`}

@@ -60,7 +60,7 @@ export function useEventTypeStyle(key: string) {
   return {
     type,
     name: type?.name ?? key,
-    style: { "--event-color": type?.color ?? "#0C7779" } as CSSProperties,
+    style: { "--event-color": type?.color ?? "#005461" } as CSSProperties,
   };
 }
 export function EventTypeBadge({ type }: { type: string }) {
