@@ -1,7 +1,7 @@
 "use client";
 import { EventTypeBadge } from "./event-types";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Plus,
   ArrowLeft,
@@ -9,18 +9,21 @@ import {
   Trash2,
   ChevronDown,
   ArrowUpRight,
+  FileText,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { dayKey } from "@/lib/tracker";
 import { formatDate } from "@/lib/date-format";
-import type { EventSummary } from "@/lib/events";
+import { eventDisplayTitle, type EventSummary } from "@/lib/events";
 import { useProfiles } from "./app-shell";
 import { useTrackerResults, type EventResults } from "./tracker/use-results";
 import { useTracker } from "./tracker/context";
 import { EventRows } from "./tracker/event-rows";
 import { TagFilterPills, TagPill } from "./ui/labels";
 import { ProfileIdentity } from "./ui/profile-avatar";
-import { CustomSelect, DatePicker } from "./ui/pickers";
+import { RichTextContent, RichTextEditor } from "./ui/rich-text";
+import { DatePicker } from "./ui/pickers";
+import { categoryLabel, type HealthDocument } from "@/lib/documents";
 import {
   LoadingState,
   ErrorState,
@@ -37,6 +40,28 @@ export type Episode = {
   description: string;
   events: EventSummary[];
 };
+
+function EpisodeFormSection({
+  number,
+  title,
+  children,
+}: {
+  number: number;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="event-form-section episode-form-section">
+      <header>
+        <span aria-hidden="true">
+          <span>{number}</span>
+        </span>
+        <h2>{title}</h2>
+      </header>
+      <div className="event-form-section-body">{children}</div>
+    </section>
+  );
+}
 export function EpisodeOverview({ profileId }: { profileId: string }) {
   const [data, setData] = useState<Episode[]>();
   const [error, setError] = useState("");
@@ -122,24 +147,56 @@ function EpisodeEditor({
       episode?.profile_id ?? activeProfile?.id ?? profiles[0]?.id ?? "",
     start_date: episode?.start_date ?? dayKey(new Date()),
     end_date: episode?.end_date ?? "",
-    status: episode?.status ?? "active",
     description: episode?.description ?? "",
     event_ids: episode?.events.map((e) => e.id) ?? [],
   });
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [search, setSearch] = useState(""),
-    [tagIds, setTagIds] = useState<string[]>([]);
+    [tagIds, setTagIds] = useState<string[]>([]),
+    [documents, setDocuments] = useState<HealthDocument[]>(),
+    [documentError, setDocumentError] = useState(""),
+    [documentAttempt, setDocumentAttempt] = useState(0);
   const options = useTrackerResults<EventResults>(
     "/api/v1/events/search",
     { profile_id: draft.profile_id, page: 1, page_size: 100 },
     { allPages: true },
   );
+  useEffect(() => {
+    const controller = new AbortController();
+    setDocuments(undefined);
+    setDocumentError("");
+    apiFetch<{ documents: HealthDocument[] }>(
+      "/api/v1/documents/search",
+      controller.signal,
+      {
+        method: "POST",
+        body: {
+          profile_id: draft.profile_id,
+          page: 1,
+          page_size: 100,
+        },
+      },
+    )
+      .then((result) => setDocuments(result.documents))
+      .catch((cause) => {
+        if (!controller.signal.aborted)
+          setDocumentError(
+            cause instanceof Error
+              ? cause.message
+              : "Unable to load documents.",
+          );
+      });
+    return () => controller.abort();
+  }, [documentAttempt, draft.profile_id]);
   const update = (key: string, value: unknown) =>
     setDraft((d) => ({ ...d, [key]: value }));
+  const relatedDocuments = (documents ?? []).filter((document) =>
+    draft.event_ids.includes(document.health_event_id),
+  );
   return (
     <form
-      className="card event-form"
+      className="episode-editor-form"
       onSubmit={async (e) => {
         e.preventDefault();
         if (busy) return;
@@ -159,7 +216,11 @@ function EpisodeEditor({
             undefined,
             {
               method: episode ? "PUT" : "POST",
-              body: { ...draft, end_date: draft.end_date || null },
+              body: {
+                ...draft,
+                title: draft.title.trim() || "Untitled episode",
+                end_date: draft.end_date || null,
+              },
             },
           );
           toast("Episode saved.");
@@ -173,176 +234,207 @@ function EpisodeEditor({
     >
       <fieldset disabled={busy}>
         <legend className="sr-only">Episode details</legend>
-        <div className="form-field">
-          <label htmlFor="episode-title">Title</label>
-          <input
-            id="episode-title"
-            required
-            maxLength={300}
-            value={draft.title}
-            onChange={(e) => update("title", e.target.value)}
-          />
-        </div>
-        <div className="form-grid">
-          <div className="form-field">
-            <label htmlFor="episode-profile">Profile</label>
-            <div
-              className="profile-choices"
-              role="radiogroup"
-              aria-label="Episode profile"
-            >
-              {profiles.map((profile) => (
-                <label
-                  key={profile.id}
-                  className={draft.profile_id === profile.id ? "selected" : ""}
-                >
-                  <input
-                    type="radio"
-                    name="episode-profile"
-                    value={profile.id}
-                    checked={draft.profile_id === profile.id}
-                    onChange={(e) =>
-                      setDraft((d) => ({
-                        ...d,
-                        profile_id: e.target.value,
-                        event_ids: [],
-                      }))
+        <EpisodeFormSection number={1} title="Episode information">
+          <div className="episode-information-grid">
+            <div className="form-field episode-profile-field">
+              <span className="field-label">Profile</span>
+              <div
+                className="profile-choices"
+                role="radiogroup"
+                aria-label="Episode profile"
+              >
+                {profiles.map((profile) => (
+                  <label
+                    key={profile.id}
+                    className={
+                      draft.profile_id === profile.id ? "selected" : ""
                     }
-                  />
-                  <ProfileIdentity
-                    name={profile.name}
-                    avatar={profile.avatar}
-                  />
-                </label>
-              ))}
+                  >
+                    <input
+                      type="radio"
+                      name="episode-profile"
+                      value={profile.id}
+                      checked={draft.profile_id === profile.id}
+                      onChange={(e) => {
+                        setDraft((d) => ({
+                          ...d,
+                          profile_id: e.target.value,
+                          event_ids: [],
+                        }));
+                        setTagIds([]);
+                      }}
+                    />
+                    <ProfileIdentity
+                      name={profile.name}
+                      avatar={profile.avatar}
+                    />
+                  </label>
+                ))}
+              </div>
             </div>
-            {episode && (
-              <p className="form-hint">
-                Changing profile clears the selected events.
+            <div className="form-field episode-title-field">
+              <label htmlFor="episode-title">Title</label>
+              <input
+                id="episode-title"
+                maxLength={300}
+                value={draft.title}
+                onChange={(e) => update("title", e.target.value)}
+              />
+            </div>
+            <div className="form-field episode-start-field">
+              <label htmlFor="episode-start">Start date</label>
+              <DatePicker
+                id="episode-start"
+                value={draft.start_date}
+                onChange={(value) => update("start_date", value)}
+              />
+            </div>
+            <div className="form-field episode-end-field">
+              <label htmlFor="episode-end">End date</label>
+              <DatePicker
+                id="episode-end"
+                min={draft.start_date}
+                optional
+                value={draft.end_date}
+                onChange={(value) => update("end_date", value)}
+              />
+            </div>
+            <div className="form-field episode-description-field">
+              <label htmlFor="episode-description">Description</label>
+              <RichTextEditor
+                id="episode-description"
+                value={draft.description}
+                onChange={(value) => update("description", value)}
+              />
+            </div>
+            <div className="episode-tags-field">
+              <TagFilterPills
+                legend="Tags"
+                items={tags}
+                selected={tagIds}
+                onChange={(ids) => setTagIds(ids.slice(0, 20))}
+                searchable
+                maxVisible={12}
+              />
+            </div>
+          </div>
+        </EpisodeFormSection>
+
+        <EpisodeFormSection number={2} title="Related events">
+          <fieldset className="episode-picker">
+            <legend className="sr-only">
+              {draft.event_ids.length} related events selected
+            </legend>
+            <div className="form-field">
+              <label className="sr-only" htmlFor="episode-search">
+                Search events
+              </label>
+              <input
+                id="episode-search"
+                type="search"
+                placeholder="Search events"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <p className="episode-selection-count">
+              {draft.event_ids.length} selected
+            </p>
+            {options.error ? (
+              <p role="alert">
+                {options.error}{" "}
+                <button
+                  type="button"
+                  className="text-link"
+                  onClick={options.retry}
+                >
+                  Retry
+                </button>
               </p>
+            ) : !options.data ? (
+              <p role="status">Loading events…</p>
+            ) : (
+              <div className="episode-event-options">
+                {options.data.events
+                  .filter(
+                    (event) =>
+                      eventDisplayTitle(event)
+                        .toLowerCase()
+                        .includes(search.toLowerCase()) &&
+                      tagIds.every((id) =>
+                        event.tags?.some((tag) => tag.id === id),
+                      ),
+                  )
+                  .map((event) => (
+                    <label key={event.id}>
+                      <input
+                        type="checkbox"
+                        checked={draft.event_ids.includes(event.id)}
+                        disabled={
+                          !draft.event_ids.includes(event.id) &&
+                          draft.event_ids.length >= 500
+                        }
+                        onChange={(choice) =>
+                          update(
+                            "event_ids",
+                            choice.target.checked
+                              ? [...draft.event_ids, event.id]
+                              : draft.event_ids.filter((id) => id !== event.id),
+                          )
+                        }
+                      />
+                      <span>
+                        <strong>{eventDisplayTitle(event)}</strong>
+                        <small>
+                          <EventTypeBadge type={event.event_type} /> ·{" "}
+                          {formatDate(event.event_date)}
+                        </small>
+                      </span>
+                    </label>
+                  ))}
+                {!options.data.events.length && (
+                  <p>No events for this profile.</p>
+                )}
+              </div>
             )}
-          </div>
-          <div className="episode-picker-filters">
-            <TagFilterPills
-              legend="Tags"
-              items={tags}
-              selected={tagIds}
-              onChange={(ids) => setTagIds(ids.slice(0, 20))}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="episode-status">Status</label>
-            <CustomSelect
-              id="episode-status"
-              value={draft.status}
-              onChange={(value) => update("status", value)}
-              options={[
-                { value: "active", label: "Active" },
-                { value: "resolved", label: "Resolved" },
-              ]}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="episode-start">Start date</label>
-            <DatePicker
-              id="episode-start"
-              value={draft.start_date}
-              onChange={(value) => update("start_date", value)}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="episode-end">
-              End date <span>Optional</span>
-            </label>
-            <DatePicker
-              id="episode-end"
-              min={draft.start_date}
-              optional
-              value={draft.end_date}
-              onChange={(value) => update("end_date", value)}
-            />
-          </div>
-        </div>
-        <div className="form-field">
-          <label htmlFor="episode-description">
-            Description <span>Optional</span>
-          </label>
-          <textarea
-            id="episode-description"
-            maxLength={5000}
-            rows={3}
-            value={draft.description}
-            onChange={(e) => update("description", e.target.value)}
-          />
-        </div>
-        <fieldset className="episode-picker">
-          <legend>Related events · {draft.event_ids.length} selected</legend>
-          <div className="form-field">
-            <label className="sr-only" htmlFor="episode-search">
-              Search events
-            </label>
-            <input
-              id="episode-search"
-              type="search"
-              placeholder="Search events"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          {options.error ? (
+          </fieldset>
+        </EpisodeFormSection>
+
+        <EpisodeFormSection number={3} title="Related documents">
+          {documentError ? (
             <p role="alert">
-              {options.error}{" "}
+              {documentError}{" "}
               <button
                 type="button"
                 className="text-link"
-                onClick={options.retry}
+                onClick={() => setDocumentAttempt((attempt) => attempt + 1)}
               >
                 Retry
               </button>
             </p>
-          ) : !options.data ? (
-            <p role="status">Loading events…</p>
+          ) : !documents ? (
+            <p role="status">Loading documents…</p>
+          ) : relatedDocuments.length ? (
+            <ul className="episode-document-options">
+              {relatedDocuments.map((document) => (
+                <li key={document.id}>
+                  <FileText size={18} aria-hidden="true" />
+                  <span>
+                    <strong>{document.file_name}</strong>
+                    <small>
+                      {categoryLabel(document.document_category)} ·{" "}
+                      {document.event_title}
+                    </small>
+                  </span>
+                </li>
+              ))}
+            </ul>
           ) : (
-            <div className="episode-event-options">
-              {options.data.events
-                .filter(
-                  (e) =>
-                    e.title.toLowerCase().includes(search.toLowerCase()) &&
-                    tagIds.every((id) => e.tags?.some((tag) => tag.id === id)),
-                )
-                .map((e) => (
-                  <label key={e.id}>
-                    <input
-                      type="checkbox"
-                      checked={draft.event_ids.includes(e.id)}
-                      disabled={
-                        !draft.event_ids.includes(e.id) &&
-                        draft.event_ids.length >= 500
-                      }
-                      onChange={(v) =>
-                        update(
-                          "event_ids",
-                          v.target.checked
-                            ? [...draft.event_ids, e.id]
-                            : draft.event_ids.filter((id) => id !== e.id),
-                        )
-                      }
-                    />
-                    <span>
-                      <strong>{e.title}</strong>
-                      <small>
-                        <EventTypeBadge type={e.event_type} /> ·{" "}
-                        {formatDate(e.event_date)}
-                      </small>
-                    </span>
-                  </label>
-                ))}
-              {!options.data.events.length && (
-                <p>No events for this profile.</p>
-              )}
-            </div>
+            <p className="overview-empty">
+              Documents attached to selected events will appear here.
+            </p>
           )}
-        </fieldset>
+        </EpisodeFormSection>
       </fieldset>
       {error && (
         <p className="form-error" role="alert">
@@ -387,7 +479,7 @@ function EpisodeEventTimeline({ events }: { events: EventSummary[] }) {
               <EventTypeBadge type={event.event_type} />
             </span>
             <strong>
-              {event.title}
+              {eventDisplayTitle(event)}
               <ArrowUpRight size={15} aria-hidden="true" />
             </strong>
             {!!event.tags?.length && (
@@ -404,23 +496,13 @@ function EpisodeEventTimeline({ events }: { events: EventSummary[] }) {
   );
 }
 
-function EpisodeAccordionCard({
-  episode,
-  profile,
-}: {
-  episode: Episode;
-  profile?: { name: string; avatar: string | null };
-}) {
+function EpisodeAccordionCard({ episode }: { episode: Episode }) {
   return (
     <details className="card episode-accordion-card">
       <summary>
         <div className="episode-card-title">
           <strong>{episode.title}</strong>
           <span className="episode-list-meta">
-            <ProfileIdentity
-              name={profile?.name ?? "Health profile"}
-              avatar={profile?.avatar}
-            />
             <span className={`status-pill episode-status-${episode.status}`}>
               {episode.status}
             </span>
@@ -443,7 +525,7 @@ function EpisodeAccordionCard({
         />
       </summary>
       <div className="episode-accordion-content">
-        {episode.description && <p>{episode.description}</p>}
+        {episode.description && <RichTextContent value={episode.description} />}
         <EpisodeEventTimeline events={episode.events} />
         <Link
           className="text-link episode-open-link"
@@ -553,7 +635,9 @@ export function EpisodesPage({ id }: { id?: string }) {
               </span>
             </div>
             {episode.description && (
-              <p className="episode-description">{episode.description}</p>
+              <div className="episode-description">
+                <RichTextContent value={episode.description} />
+              </div>
             )}
           </section>
           <section className="card episode-related">
@@ -573,25 +657,44 @@ export function EpisodesPage({ id }: { id?: string }) {
             <Trash2 size={17} aria-hidden="true" />
           </button>
         </>
-      ) : data.length ? (
-        <div className="episode-cards">
-          {data.map((episode) => (
-            <EpisodeAccordionCard
-              key={episode.id}
-              episode={episode}
-              profile={profiles.find(
-                (profile) => profile.id === episode.profile_id,
-              )}
-            />
-          ))}
-        </div>
       ) : (
-        <section className="card event-state">
-          <h2>No episodes</h2>
-          <button className="button" onClick={() => setEditing(true)}>
-            <Plus size={16} /> Add episode
-          </button>
-        </section>
+        <div
+          className={`episode-profile-grid ${activeProfile ? "single-profile" : ""}`}
+        >
+          {(activeProfile ? [activeProfile] : profiles).map((profile) => {
+            const profileEpisodes = data.filter(
+              (item) => item.profile_id === profile.id,
+            );
+            return (
+              <section className="episode-profile-column" key={profile.id}>
+                <header>
+                  <h2>
+                    <ProfileIdentity
+                      name={profile.name}
+                      avatar={profile.avatar}
+                    />
+                  </h2>
+                  <span>
+                    {profileEpisodes.length}{" "}
+                    {profileEpisodes.length === 1 ? "episode" : "episodes"}
+                  </span>
+                </header>
+                {profileEpisodes.length ? (
+                  <div className="episode-cards">
+                    {profileEpisodes.map((episode) => (
+                      <EpisodeAccordionCard
+                        key={episode.id}
+                        episode={episode}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="card episode-profile-empty">No episodes.</div>
+                )}
+              </section>
+            );
+          })}
+        </div>
       )}
       {deleting && episode && (
         <ConfirmDialog

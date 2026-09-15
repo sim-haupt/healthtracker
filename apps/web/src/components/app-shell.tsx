@@ -24,6 +24,7 @@ import {
   LogOut,
   Menu,
   X,
+  Bell,
 } from "lucide-react";
 import { TrackerProvider } from "./tracker/context";
 import { supabase } from "@/lib/supabase";
@@ -51,14 +52,15 @@ export const useProfile = () =>
 export const useProfileCount = () => useContext(ProfileContext).profiles.length;
 const navigation = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/vaccinations", label: "Vaccinations", icon: Syringe },
   { href: "/timeline", label: "Timeline", icon: History },
-  { href: "/documents", label: "Documents", icon: Files },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/episodes", label: "Health episodes", icon: Layers },
+  { href: "/documents", label: "Documents", icon: Files },
+  { href: "/vaccinations", label: "Vaccinations", icon: Syringe },
   { href: "/providers", label: "Medical Providers", icon: Stethoscope },
-  { href: "/settings", label: "Settings", icon: Settings2 },
+  { href: "/reminders", label: "Reminders", icon: Bell },
 ];
+const pageLabels = [...navigation, { href: "/settings", label: "Settings" }];
 export function AppShell({
   children,
   userId,
@@ -283,7 +285,7 @@ export function AppShell({
 
                       <strong>
                         {
-                          navigation.find(
+                          pageLabels.find(
                             (n) =>
                               pathname === n.href ||
                               pathname.startsWith(`${n.href}/`),
@@ -322,6 +324,20 @@ export function AppShell({
                           })),
                         ]}
                       />
+                      <Link
+                        href="/settings"
+                        className={`icon-button header-settings ${pathname === "/settings" || pathname.startsWith("/settings/") ? "active" : ""}`}
+                        aria-label="Settings"
+                        aria-current={
+                          pathname === "/settings" ||
+                          pathname.startsWith("/settings/")
+                            ? "page"
+                            : undefined
+                        }
+                        title="Settings"
+                      >
+                        <Settings2 size={20} />
+                      </Link>
                     </div>
                   </header>
                   <main id="main" className="main-content">

@@ -6,12 +6,14 @@ import type { ProviderDataAccess } from "./providers.js";
 import type { UserDataAccess } from "./data.js";
 import type { AttachmentDataAccess } from "./attachments.js";
 import type { DocumentDataAccess } from "./documents.js";
+import type { ReminderDataAccess } from "./reminders.js";
 export const emptyEventData: EventTypeDataAccess &
   EpisodeDataAccess &
   EventDataAccess &
   ProviderDataAccess &
   AttachmentDataAccess &
   DocumentDataAccess &
+  ReminderDataAccess &
   Pick<UserDataAccess, "updateProfile" | "updateLabel" | "deleteLabel"> = {
   listEventTypes: async () => [],
   saveEventType: async () => null,
@@ -30,6 +32,11 @@ export const emptyEventData: EventTypeDataAccess &
   },
   deleteAttachment: async () => false,
   listDocuments: async () => ({ documents: [], total: 0 }),
+  listReminders: async () => ({ reminders: [], total: 0 }),
+  saveReminder: async () => null,
+  setReminderStatus: async () => null,
+  deleteReminder: async () => false,
+  syncEventReminders: async () => [],
   listProviders: async () => [],
   getProvider: async () => null,
   saveProvider: async () => null,

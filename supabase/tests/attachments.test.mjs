@@ -29,6 +29,10 @@ test("private attachments enforce database and Storage isolation and upload cons
       "202609130013_episode_list_events.sql",
       "202609130014_provider_ratings.sql",
       "202609130015_monochrome_green_scale.sql",
+      "202609130016_vivid_event_type_colors.sql",
+      "202609140017_automatic_episode_status.sql",
+      "202609140018_vaccination_dose_and_renewal.sql",
+      "202609140019_reminders.sql",
     ])
       await db.exec(
         await readFile(
@@ -459,9 +463,13 @@ test("private attachments enforce database and Storage isolation and upload cons
         event_type: "Vaccination",
         title: "Recorded vaccine",
         disease: "Recorded disease",
+        dose_number: 2,
+        dose_total: 3,
         event_date: "2026-01-01T12:00:00Z",
         notes: "Patient supplied notes",
         next_dose_date: "2030-06-15",
+        needs_renewal: true,
+        renewal_date: "2035-06-15",
       };
       const saved = (
         await db.query("select public.save_health_event(null,$1) as result", [
@@ -470,6 +478,10 @@ test("private attachments enforce database and Storage isolation and upload cons
       ).rows[0].result;
       assert.equal(saved.disease, "Recorded disease");
       assert.equal(saved.next_dose_date, "2030-06-15");
+      assert.equal(saved.dose_number, 2);
+      assert.equal(saved.dose_total, 3);
+      assert.equal(saved.needs_renewal, true);
+      assert.equal(saved.renewal_date, "2035-06-15");
       const dashboard = (
         await db.query("select public.health_dashboard('{}') as result")
       ).rows[0].result;
@@ -486,6 +498,21 @@ test("private attachments enforce database and Storage isolation and upload cons
         ])
       ).rows[0].result;
       assert.equal(history.events[0].disease, "Recorded disease");
+      assert.equal(history.events[0].title, "Recorded disease");
+      const vaccinationSearch = (
+        await db.query("select public.search_health_events($1) as result", [
+          { q: "Recorded disease" },
+        ])
+      ).rows[0].result;
+      assert.ok(
+        vaccinationSearch.events.some((event) => event.id === saved.id),
+      );
+      const timeline = (
+        await db.query("select public.health_timeline($1,'event') as result", [
+          { event_type: "Vaccination" },
+        ])
+      ).rows[0].result;
+      assert.equal(timeline.items[0].title, "Recorded disease");
       await db.query("select public.save_health_event($1,$2)", [
         saved.id,
         { ...input, next_dose_date: "2000-01-01" },
@@ -533,7 +560,6 @@ test("private attachments enforce database and Storage isolation and upload cons
         profile_id: event.profile_id,
         start_date: "2026-01-01",
         end_date: null,
-        status: "active",
         description: "Recovery",
         event_ids: [event.id],
       };
@@ -583,7 +609,7 @@ test("private attachments enforce database and Storage isolation and upload cons
       const resolved = (
         await db.query("select public.save_health_episode($1,$2) as result", [
           episodeId,
-          { ...input, status: "resolved", end_date: "2026-01-15" },
+          { ...input, status: "active", end_date: "2026-01-15" },
         ])
       ).rows[0].result;
       assert.equal(resolved.status, "resolved");
@@ -792,6 +818,42 @@ test("private attachments enforce database and Storage isolation and upload cons
             [customType.id],
           )
         ).rows.length,
+        0,
+      );
+    });
+    let vaccinationId;
+    await run(uid(1), async () => {
+      const profile = (await db.query("select id from public.profiles order by created_at,id limit 1")).rows[0].id;
+      vaccinationId = uid(90);
+      await db.query(
+        `insert into public.health_events(id,profile_id,event_type,title,disease,event_date,next_dose_date,needs_renewal,renewal_date)
+         values($1,$2,'Vaccination','Example vaccine','Example disease',now(),'2027-03-10',true,'2036-03-10')`,
+        [vaccinationId, profile],
+      );
+      const generated = (await db.query(
+        "select reminder_kind,title,due_date::text,status from public.reminders where source_event_id=$1 order by reminder_kind",
+        [vaccinationId],
+      )).rows;
+      assert.deepEqual(generated.map((item) => item.reminder_kind), ["next_dose", "renewal"]);
+      assert.equal(generated[0].status, "scheduled");
+      await db.query("update public.health_events set next_dose_date='2027-04-10',needs_renewal=false where id=$1", [vaccinationId]);
+      const changed = (await db.query(
+        "select reminder_kind,due_date::text from public.reminders where source_event_id=$1",
+        [vaccinationId],
+      )).rows;
+      assert.deepEqual(changed, [{ reminder_kind: "next_dose", due_date: "2027-04-10" }]);
+      await db.query(
+        "insert into public.reminders(profile_id,source_event_id,title,due_date,recurrence) values($1,$2,'Annual check','2027-09-14','yearly')",
+        [profile, vaccinationId],
+      );
+      assert.equal(
+        (await db.query("select count(*) as n from public.reminders where source_event_id=$1", [vaccinationId])).rows[0].n,
+        2,
+      );
+    });
+    await run(uid(2), async () => {
+      assert.equal(
+        (await db.query("select count(*) as n from public.reminders where source_event_id=$1", [vaccinationId])).rows[0].n,
         0,
       );
     });

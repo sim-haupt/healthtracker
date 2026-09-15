@@ -15,8 +15,12 @@ import { TrackerFiltersBar, useTrackerQuery } from "./filters";
 import { useTrackerResults, type EventResults } from "./use-results";
 import { EventRows } from "./event-rows";
 import { formatAccessibleDate, formatDate } from "@/lib/date-format";
+import { eventDisplayTitle } from "@/lib/events";
+import { useProfiles } from "../app-shell";
+import { ProfileAvatar } from "../ui/profile-avatar";
 export function HealthCalendar() {
   const typeOptions = useEventTypes();
+  const { profiles, activeProfile } = useProfiles();
   const [month, setMonth] = useState(
     () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   );
@@ -115,6 +119,7 @@ export function HealthCalendar() {
                   <div
                     key={key}
                     className={`calendar-day ${current ? "" : "outside-month"} ${selected === key ? "selected-day" : ""}`}
+                    onClick={() => setSelected(key)}
                   >
                     <button
                       className={`day-number ${key === dayKey(new Date()) ? "today" : ""}`}
@@ -125,24 +130,36 @@ export function HealthCalendar() {
                       {day.getDate()}
                     </button>
                     <div className="calendar-event-links">
-                      {events.slice(0, 2).map((event) => (
-                        <Link
-                          key={event.id}
-                          className="calendar-event"
-                          style={
-                            {
-                              "--event-color":
-                                typeOptions.types.find(
-                                  (t) => t.key === event.event_type,
-                                )?.color ?? "#005461",
-                            } as CSSProperties
-                          }
-                          href={`/events/${event.id}`}
-                          title={`${typeOptions.types.find((t) => t.key === event.event_type)?.name ?? event.event_type}: ${event.title}`}
-                        >
-                          {event.title}
-                        </Link>
-                      ))}
+                      {events.slice(0, 2).map((event) => {
+                        const profile = profiles.find(
+                          (item) => item.id === event.profile_id,
+                        );
+                        const eventType = typeOptions.types.find(
+                          (type) => type.key === event.event_type,
+                        );
+                        const typeName = eventType?.name ?? event.event_type;
+                        return (
+                          <Link
+                            key={event.id}
+                            className="calendar-event"
+                            style={
+                              {
+                                "--event-color": eventType?.color ?? "#005461",
+                              } as CSSProperties
+                            }
+                            href={`/events/${event.id}`}
+                            title={`${profile?.name ?? "Health profile"} · ${typeName}: ${eventDisplayTitle(event)}`}
+                          >
+                            {!activeProfile && (
+                              <ProfileAvatar
+                                name={profile?.name ?? "Health profile"}
+                                avatar={profile?.avatar}
+                              />
+                            )}
+                            <span>{eventDisplayTitle(event)}</span>
+                          </Link>
+                        );
+                      })}
                     </div>
                     {events.length > 0 && (
                       <button

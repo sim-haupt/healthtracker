@@ -13,6 +13,7 @@ import {
 } from "@/lib/attachments";
 import { categoryLabel } from "@/lib/documents";
 import { DocumentCategoryPill } from "../ui/labels";
+import { RichTextContent } from "../ui/rich-text";
 import { CustomSelect } from "../ui/pickers";
 
 function AttachmentItem({
@@ -108,7 +109,7 @@ function AttachmentItem({
           {item.file_name.split(".").pop()?.toUpperCase()} ·{" "}
           {(item.file_size / 1024 / 1024).toFixed(2)} MB
         </span>
-        {item.description && <p>{item.description}</p>}
+        {item.description && <RichTextContent value={item.description} />}
         {error && (
           <p className="field-error" role="alert">
             {error}{" "}

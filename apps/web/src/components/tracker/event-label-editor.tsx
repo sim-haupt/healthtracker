@@ -11,6 +11,7 @@ function LabelPicker({
   onCreate,
   disabled,
   error,
+  id,
 }: {
   items: Label[];
   selected: string[];
@@ -18,6 +19,7 @@ function LabelPicker({
   onCreate: (name: string) => Promise<boolean>;
   disabled: boolean;
   error?: string;
+  id: string;
 }) {
   const [query, setQuery] = useState("");
   const term = query.trim();
@@ -34,7 +36,6 @@ function LabelPicker({
     item.name.toLocaleLowerCase().includes(normalized),
   );
   const full = selected.length >= 20;
-  const id = "event-tags";
   function choose(itemId: string) {
     onSelect(itemId);
     setQuery("");
@@ -112,7 +113,6 @@ function LabelPicker({
       )}
       {items.length > 0 && (
         <div className="common-labels">
-          <span className="muted">Most used</span>
           <div className="label-pills">
             {sorted.slice(0, 10).map((item) => (
               <button
@@ -132,11 +132,6 @@ function LabelPicker({
           </div>
         </div>
       )}
-      {full && (
-        <p className="form-hint">
-          20 tags selected. Remove a tag to add another.
-        </p>
-      )}
       {error && (
         <p id={`${id}-error`} className="field-error">
           {error}
@@ -151,11 +146,15 @@ export function EventLabelEditor({
   onTags,
   fieldErrors = {},
   onBusyChange,
+  showHeading = true,
+  id = "event-tags",
 }: {
   fieldErrors?: Record<string, string>;
   onBusyChange: (busy: boolean) => void;
   tagIds: string[];
   onTags: (ids: string[]) => void;
+  showHeading?: boolean;
+  id?: string;
 }) {
   const { tags, createTag, labelError, labelsLoading, reloadLabels } =
     useTracker();
@@ -182,7 +181,7 @@ export function EventLabelEditor({
   }
   return (
     <section className="event-label-editor">
-      <h2>Tags</h2>
+      {showHeading && <h2>Tags</h2>}
       {labelError && (
         <p className="field-error" role="alert">
           {labelError}{" "}
@@ -197,6 +196,7 @@ export function EventLabelEditor({
         </p>
       )}
       <LabelPicker
+        id={id}
         items={tags}
         selected={tagIds}
         onSelect={(id) =>

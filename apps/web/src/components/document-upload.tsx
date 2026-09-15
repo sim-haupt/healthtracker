@@ -2,21 +2,20 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { Paperclip, Upload } from "lucide-react";
-import type { EventSummary } from "@/lib/events";
+import { Upload } from "lucide-react";
+import { eventDisplayTitle, type EventSummary } from "@/lib/events";
 import {
   attachmentError,
   attachmentTypes,
-  documentCategories,
   type DocumentCategory,
 } from "@/lib/attachments";
-import { categoryLabel } from "@/lib/documents";
 import { formatDate } from "@/lib/date-format";
 import type { HealthProfile } from "./app-shell";
 import { ProfileIdentity } from "./ui/profile-avatar";
 import { useToast } from "./ui/feedback";
 import { uploadPendingDocument } from "./events/pending-document";
 import { CustomSelect } from "./ui/pickers";
+import { DocumentFormFields } from "./document-form-fields";
 
 export function DocumentUpload({
   events,
@@ -39,6 +38,9 @@ export function DocumentUpload({
   const [file, setFile] = useState<File | null>(null);
   const [documentType, setDocumentType] = useState<DocumentCategory>("other");
   const [description, setDescription] = useState("");
+  const [tagIds, setTagIds] = useState<string[]>([]);
+  const [tagBusy, setTagBusy] = useState(false);
+  const [fileInputKey, setFileInputKey] = useState(0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const selectedEvent = events.find((event) => event.id === eventId);
@@ -51,6 +53,8 @@ export function DocumentUpload({
     setFile(null);
     setDocumentType("other");
     setDescription("");
+    setTagIds([]);
+    setFileInputKey((key) => key + 1);
     setError("");
   }
 
@@ -88,6 +92,7 @@ export function DocumentUpload({
         mimeType,
         documentType,
         description,
+        tagIds,
       });
       dialog.current?.close();
       reset();
@@ -113,7 +118,7 @@ export function DocumentUpload({
       </button>
       <dialog
         ref={dialog}
-        className="delete-dialog attachment-upload-dialog document-upload-dialog"
+        className="delete-dialog attachment-upload-dialog document-upload-dialog structured-form-dialog"
         aria-labelledby="document-upload-title"
         onCancel={(event) => {
           event.preventDefault();
@@ -122,118 +127,87 @@ export function DocumentUpload({
       >
         <h2 id="document-upload-title">Upload document</h2>
         <form onSubmit={upload}>
-          <div className="field">
-            <label htmlFor="upload-related-event">Related event</label>
-            <CustomSelect
-              id="upload-related-event"
-              value={eventId}
-              disabled={busy || loading}
-              invalid={!!error && !eventId}
-              onChange={(value) => {
-                setEventId(value);
-                setError("");
-              }}
-              options={[
-                {
-                  value: "",
-                  label: loading
-                    ? "Loading events…"
-                    : events.length
-                      ? "Choose an event"
-                      : "No events available",
-                },
-                ...events.map((event) => ({
-                  value: event.id,
-                  label: `${event.title} · ${formatDate(event.event_date)}`,
-                })),
-              ]}
-            />
-            {selectedEvent && (
-              <div className="selected-document-event">
-                <ProfileIdentity
-                  name={selectedProfile?.name ?? "Health profile"}
-                  avatar={selectedProfile?.avatar}
+          <DocumentFormFields
+            idPrefix="upload-document"
+            documentType={documentType}
+            description={description}
+            tagIds={tagIds}
+            file={file}
+            disabled={busy || tagBusy}
+            fileInputKey={fileInputKey}
+            onDocumentType={setDocumentType}
+            onDescription={setDescription}
+            onTags={setTagIds}
+            onTagBusyChange={setTagBusy}
+            onFile={(chosen) => {
+              setFile(chosen);
+              if (!chosen) return;
+              const mimeType =
+                chosen.type ||
+                attachmentTypes[
+                  chosen.name.split(".").pop()?.toLowerCase() ?? ""
+                ] ||
+                "";
+              setError(
+                attachmentError(chosen.name, chosen.size, mimeType) ?? "",
+              );
+            }}
+            relatedEvent={
+              <div className="field document-form-event">
+                <label htmlFor="upload-related-event">Related event</label>
+                <CustomSelect
+                  id="upload-related-event"
+                  value={eventId}
+                  disabled={busy || loading}
+                  invalid={!!error && !eventId}
+                  onChange={(value) => {
+                    setEventId(value);
+                    setError("");
+                  }}
+                  options={[
+                    {
+                      value: "",
+                      label: loading
+                        ? "Loading events…"
+                        : events.length
+                          ? "Choose an event"
+                          : "No events available",
+                    },
+                    ...events.map((event) => ({
+                      value: event.id,
+                      label: `${eventDisplayTitle(event)} · ${formatDate(event.event_date)}`,
+                    })),
+                  ]}
                 />
-                <span>{selectedEvent.event_type}</span>
+                {selectedEvent && (
+                  <div className="selected-document-event">
+                    <ProfileIdentity
+                      name={selectedProfile?.name ?? "Health profile"}
+                      avatar={selectedProfile?.avatar}
+                    />
+                    <span>{selectedEvent.event_type}</span>
+                  </div>
+                )}
+                {loadError && (
+                  <p className="field-error" role="alert">
+                    {loadError}{" "}
+                    <button
+                      type="button"
+                      className="text-link"
+                      onClick={retryEvents}
+                    >
+                      Retry
+                    </button>
+                  </p>
+                )}
+                {!loading && !loadError && !events.length && (
+                  <Link className="text-link" href="/events/new">
+                    Add an event first
+                  </Link>
+                )}
               </div>
-            )}
-            {loadError && (
-              <p className="field-error" role="alert">
-                {loadError}{" "}
-                <button
-                  type="button"
-                  className="text-link"
-                  onClick={retryEvents}
-                >
-                  Retry
-                </button>
-              </p>
-            )}
-            {!loading && !loadError && !events.length && (
-              <Link className="text-link" href="/events/new">
-                Add an event first
-              </Link>
-            )}
-          </div>
-          <div className="field">
-            <label htmlFor="upload-document-file">Document</label>
-            <label className="file-choice" htmlFor="upload-document-file">
-              <Paperclip size={17} />
-              <span>{file?.name ?? "Choose file"}</span>
-            </label>
-            <input
-              id="upload-document-file"
-              className="sr-only"
-              type="file"
-              required
-              disabled={busy}
-              accept={Object.keys(attachmentTypes)
-                .map((extension) => `.${extension}`)
-                .join(",")}
-              onChange={(event) => {
-                const chosen = event.target.files?.[0] ?? null;
-                setFile(chosen);
-                if (chosen) {
-                  const mimeType =
-                    chosen.type ||
-                    attachmentTypes[
-                      chosen.name.split(".").pop()?.toLowerCase() ?? ""
-                    ] ||
-                    "";
-                  setError(
-                    attachmentError(chosen.name, chosen.size, mimeType) ?? "",
-                  );
-                }
-              }}
-            />
-            <p className="form-hint">PDF, image, or document · Up to 10 MB</p>
-          </div>
-          <div className="field">
-            <label htmlFor="upload-document-type">Document type</label>
-            <CustomSelect
-              id="upload-document-type"
-              value={documentType}
-              disabled={busy}
-              onChange={(value) => setDocumentType(value as DocumentCategory)}
-              options={documentCategories.map((type) => ({
-                value: type,
-                label: categoryLabel(type),
-              }))}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="upload-document-description">
-              Description <span>Optional</span>
-            </label>
-            <textarea
-              id="upload-document-description"
-              value={description}
-              maxLength={2000}
-              rows={3}
-              disabled={busy}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </div>
+            }
+          />
           {error && (
             <p className="form-error" role="alert">
               {error}
@@ -250,7 +224,7 @@ export function DocumentUpload({
             </button>
             <button
               className="button"
-              disabled={busy || loading || !events.length}
+              disabled={busy || tagBusy || loading || !events.length}
             >
               <Upload size={16} /> {busy ? "Uploading…" : "Upload document"}
             </button>

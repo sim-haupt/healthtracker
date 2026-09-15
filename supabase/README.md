@@ -84,6 +84,8 @@ The attachment test supplies a minimal Storage schema in PGlite and executes the
 
 `202609120006_vaccinations.sql` adds optional disease and next-dose fields to health events, includes them in event summaries, and extends the dashboard result with at most three future manually entered dose dates per profile. It contains no recommendation intervals or clinical decision logic. Existing event, provider, attachment, and RLS policies continue to govern each vaccination record.
 
+Apply `202609140018_vaccination_dose_and_renewal.sql` after the later event and episode migrations. It adds optional dose progress, renewal status, and renewal date fields, and updates the event save and summary functions. Dose numbers are limited to 1–3 and the recorded dose cannot exceed the total. Renewal and next-dose dates remain manually entered; the application does not calculate medical recommendations.
+
 ## Documents migration
 
 `202609120007_documents.sql` adds attachment category and description fields, defaults existing files to `other`, and adds the authenticated `search_health_documents` function. It filters completed uploads by profile, MIME group, event, document category, upload date, event tags, and literal filename/description text. The function is a security invoker and relies on the existing attachment, health-event, label, membership, and private Storage RLS policies. Pagination is capped at 100 rows per request.

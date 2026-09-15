@@ -16,6 +16,7 @@ import {
 } from "../../web/src/lib/attachments.js";
 const eventId = "00000000-0000-4000-8000-000000000001";
 const attachmentId = "00000000-0000-4000-8000-000000000002";
+const tagId = "00000000-0000-4000-8000-000000000003";
 test("attachment validation rejects unsafe filenames, mismatched types and oversized files in API and browser", () => {
   assert.deepEqual(attachmentTypes, browserTypes);
   assert.deepEqual(documentCategories, browserCategories);
@@ -58,6 +59,7 @@ test("attachment routes authenticate, validate ownership and scope deletion to t
         assert.equal(owner, "owner");
         assert.equal(input.document_category, "lab result");
         assert.equal(input.description, "Annual blood work");
+        assert.deepEqual(input.tag_ids, [tagId]);
         return {
           id: attachmentId,
           health_event_id: id,
@@ -103,6 +105,7 @@ test("attachment routes authenticate, validate ownership and scope deletion to t
       file_size: 100,
       document_category: "lab result",
       description: "Annual blood work",
+      tag_ids: [tagId],
     })
     .expect(201);
   await request(app)

@@ -10,12 +10,17 @@ const input = {
   profile_id: id,
   start_date: "2026-01-02",
   end_date: null,
-  status: "active",
   description: "",
   event_ids: [],
 };
-test("episodes validate dates, status, ownership fields and event IDs", () => {
-  assert.ok(episodeSchema.safeParse(input).success);
+test("episodes validate dates and derive status from the end date", () => {
+  const active = episodeSchema.safeParse(input);
+  assert.equal(active.success && active.data.status, "active");
+  const resolved = episodeSchema.safeParse({
+    ...input,
+    end_date: "2026-01-10",
+  });
+  assert.equal(resolved.success && resolved.data.status, "resolved");
   for (const change of [
     { end_date: "2025-01-01" },
     { status: "unknown" },
@@ -71,7 +76,7 @@ test("episode CRUD and event linking require approved authentication", async () 
   await request(app)
     .put(`/api/v1/episodes/${id}`)
     .set("Authorization", "Bearer good")
-    .send({ ...input, status: "resolved", end_date: "2026-01-10" })
+    .send({ ...input, end_date: "2026-01-10" })
     .expect(200);
   await request(app)
     .delete(`/api/v1/episodes/${id}`)

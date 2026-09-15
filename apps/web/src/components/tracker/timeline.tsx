@@ -25,6 +25,7 @@ import { LoadingState, ErrorState } from "../ui/feedback";
 import { TagPill } from "../ui/labels";
 import { formatAccessibleDate, ordinalDay } from "@/lib/date-format";
 import { CustomSelect } from "../ui/pickers";
+import { ProfileColumns } from "../ui/profile-columns";
 import {
   groupTimeline,
   type TimelineItem,
@@ -113,6 +114,36 @@ function TimelineEntry({ item }: { item: TimelineItem }) {
     </li>
   );
 }
+function TimelineGroups({ items }: { items: TimelineItem[] }) {
+  return (
+    <div className="health-timeline">
+      {groupTimeline(items).map((year) => (
+        <section className="timeline-year" key={year.year} aria-label={String(year.year)}>
+          <h2 className="timeline-year-heading">{year.year}</h2>
+          {year.months.map((month) => (
+            <section className="timeline-month" key={month.key}>
+              <h3 className="timeline-month-heading">{month.label} <span>{year.year}</span></h3>
+              {month.days.map((day) => (
+                <div className="timeline-day" key={day.key}>
+                  <div className="timeline-day-label">
+                    <time dateTime={day.date.toISOString()}>
+                      <strong>{ordinalDay(day.date.getDate())}</strong>
+                      <span>{day.date.toLocaleDateString(undefined, { weekday: "short" })}</span>
+                    </time>
+                    <span className="sr-only">{formatAccessibleDate(day.date)}</span>
+                  </div>
+                  <ol className="timeline-day-items">
+                    {day.items.map((item) => <TimelineEntry key={item.id} item={item} />)}
+                  </ol>
+                </div>
+              ))}
+            </section>
+          ))}
+        </section>
+      ))}
+    </div>
+  );
+}
 function TimelineContent({
   query,
   entryType,
@@ -159,46 +190,9 @@ function TimelineContent({
         {data.total} {data.total === 1 ? "entry" : "entries"} · Newest first ·
         Dates in your local timezone
       </div>
-      <div className="health-timeline">
-        {groupTimeline(data.items).map((year) => (
-          <section
-            className="timeline-year"
-            key={year.year}
-            aria-label={String(year.year)}
-          >
-            <h2 className="timeline-year-heading">{year.year}</h2>
-            {year.months.map((month) => (
-              <section className="timeline-month" key={month.key}>
-                <h3 className="timeline-month-heading">
-                  {month.label} <span>{year.year}</span>
-                </h3>
-                {month.days.map((day) => (
-                  <div className="timeline-day" key={day.key}>
-                    <div className="timeline-day-label">
-                      <time dateTime={day.date.toISOString()}>
-                        <strong>{ordinalDay(day.date.getDate())}</strong>
-                        <span>
-                          {day.date.toLocaleDateString(undefined, {
-                            weekday: "short",
-                          })}
-                        </span>
-                      </time>
-                      <span className="sr-only">
-                        {formatAccessibleDate(day.date)}
-                      </span>
-                    </div>
-                    <ol className="timeline-day-items">
-                      {day.items.map((item) => (
-                        <TimelineEntry key={item.id} item={item} />
-                      ))}
-                    </ol>
-                  </div>
-                ))}
-              </section>
-            ))}
-          </section>
-        ))}
-      </div>
+      <ProfileColumns items={data.items} profileId={(item) => item.profile_id} noun="entry" className="timeline-profile-columns">
+        {(items) => <TimelineGroups items={items} />}
+      </ProfileColumns>
       <div className="card events-pagination">
         <span>
           Page {page} of {Math.max(1, Math.ceil(data.total / 30))}
@@ -240,11 +234,12 @@ export function HealthTimeline() {
       <TrackerFiltersBar
         extraFilterCount={entryType === "all" ? 0 : 1}
         onClearExtra={() => setEntryType("all")}
-        extraFilters={
+        primaryFilter={
           <div className="filter-select">
             <label htmlFor="timeline-entry-type">Entry type</label>
             <CustomSelect
               id="timeline-entry-type"
+              ariaLabel="Entry type"
               value={entryType}
               onChange={setEntryType}
               options={[

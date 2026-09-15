@@ -10,8 +10,6 @@ import {
   FileImage,
   FileText,
   FolderOpen,
-  Search,
-  SlidersHorizontal,
 } from "lucide-react";
 import { useProfiles } from "./app-shell";
 import { DocumentUpload } from "./document-upload";
@@ -20,10 +18,14 @@ import { useTrackerResults, type EventResults } from "./tracker/use-results";
 import { ErrorState, LoadingState } from "./ui/feedback";
 import { ProfileIdentity } from "./ui/profile-avatar";
 import { DocumentCategoryPill, TagFilterPills, TagPill } from "./ui/labels";
+import { RichTextContent } from "./ui/rich-text";
 import { supabase } from "@/lib/supabase";
 import { documentCategories } from "@/lib/attachments";
 import { formatDate } from "@/lib/date-format";
 import { CustomSelect, DatePicker } from "./ui/pickers";
+import { FilterBar } from "./ui/filter-bar";
+import { ProfileColumns } from "./ui/profile-columns";
+import { eventDisplayTitle } from "@/lib/events";
 import {
   categoryLabel,
   documentFileTypes,
@@ -87,7 +89,7 @@ function DocumentCard({ item }: { item: HealthDocument }) {
           <span>{(item.file_size / 1024 / 1024).toFixed(2)} MB</span>
         </div>
         <h2>{item.file_name}</h2>
-        {item.description && <p>{item.description}</p>}
+        {item.description && <RichTextContent value={item.description} />}
         <div className="document-context">
           <ProfileIdentity
             name={profile?.name ?? "Health profile"}
@@ -170,11 +172,15 @@ function DocumentResultsList({
         {data.total} {data.total === 1 ? "document" : "documents"} · Newest
         uploads first
       </div>
-      <div className="document-list">
-        {data.documents.map((item) => (
-          <DocumentCard item={item} key={item.id} />
-        ))}
-      </div>
+      <ProfileColumns items={data.documents} profileId={(item) => item.profile_id} noun="document">
+        {(documents) => (
+          <div className="document-list">
+            {documents.map((item) => (
+              <DocumentCard item={item} key={item.id} />
+            ))}
+          </div>
+        )}
+      </ProfileColumns>
       <div className="card events-pagination">
         <span>
           Page {page} of {Math.max(1, Math.ceil(data.total / 24))}
@@ -263,122 +269,114 @@ export function DocumentsPage() {
           onUploaded={() => setRevision((value) => value + 1)}
         />
       </div>
-      <section className="card tracker-filters" aria-label="Filter documents">
-        <div className="filter-top">
-          <div className="search-field">
-            <Search size={18} />
-            <label className="sr-only" htmlFor="document-search">
-              Search filenames and descriptions
-            </label>
-            <input
-              id="document-search"
-              type="search"
-              maxLength={200}
-              value={filters.q}
-              placeholder="Search files and descriptions…"
-              onChange={(event) => update("q", event.target.value)}
-            />
-          </div>
-          <div className="filter-select">
-            <label htmlFor="document-file-type">File type</label>
-            <CustomSelect
-              id="document-file-type"
-              value={filters.file_type}
-              onChange={(value) => update("file_type", value)}
-              options={[
-                { value: "", label: "All file types" },
-                ...documentFileTypes.map(([value, label]) => ({
-                  value,
-                  label,
-                })),
-              ]}
-            />
-          </div>
-        </div>
-        <div className="filter-footer">
-          <details className="filter-details">
-            <summary>
-              <SlidersHorizontal size={16} /> Filters{" "}
-              {count > 0 && <span className="filter-count">{count}</span>}
-            </summary>
-            <div className="advanced-filters document-advanced-filters">
-              <div className="filter-select">
-                <label htmlFor="document-category">Document type</label>
-                <CustomSelect
-                  id="document-category"
-                  value={filters.document_category}
-                  onChange={(value) => update("document_category", value)}
-                  options={[
-                    { value: "", label: "All document types" },
-                    ...documentCategories.map((category) => ({
-                      value: category,
-                      label: categoryLabel(category),
-                    })),
-                  ]}
-                />
-              </div>
-              <div className="filter-select">
-                <label htmlFor="document-event">Related event</label>
-                <CustomSelect
-                  id="document-event"
-                  value={filters.event_id}
-                  disabled={!eventOptions.data}
-                  onChange={(value) => update("event_id", value)}
-                  options={[
-                    { value: "", label: "All events" },
-                    ...availableEvents.map((event) => ({
-                      value: event.id,
-                      label: `${event.title} · ${formatDate(event.event_date)}`,
-                    })),
-                  ]}
-                />
-                {eventOptions.error && (
-                  <p className="field-error" role="alert">
-                    {eventOptions.error}{" "}
-                    <button className="text-link" onClick={eventOptions.retry}>
-                      Retry
-                    </button>
-                  </p>
-                )}
-              </div>
-              <div className="filter-select">
-                <label htmlFor="document-from">Uploaded from</label>
-                <DatePicker
-                  id="document-from"
-                  value={filters.date_from}
-                  optional
-                  onChange={(value) => update("date_from", value)}
-                />
-              </div>
-              <div className="filter-select">
-                <label htmlFor="document-to">Uploaded through</label>
-                <DatePicker
-                  id="document-to"
-                  value={filters.date_to}
-                  optional
-                  min={filters.date_from}
-                  onChange={(value) => update("date_to", value)}
-                />
-              </div>
-              <TagFilterPills
-                legend="Event tags"
-                items={tags}
-                selected={filters.tag_ids}
-                onChange={(ids) => update("tag_ids", ids.slice(0, 20))}
-                emptyText={labelsLoading ? undefined : "No tags are available."}
+      <FilterBar
+        label="Filter documents"
+        count={count}
+        onClear={() => setFilters(emptyDocumentFilters)}
+        primary={
+          <>
+            <div className="filter-select">
+              <label htmlFor="document-file-type">File type</label>
+              <CustomSelect
+                id="document-file-type"
+                ariaLabel="File type"
+                value={filters.file_type}
+                onChange={(value) => update("file_type", value)}
+                options={[
+                  { value: "", label: "All file types" },
+                  ...documentFileTypes.map(([value, label]) => ({
+                    value,
+                    label,
+                  })),
+                ]}
               />
             </div>
-          </details>
-          <button
-            className="text-link"
-            disabled={!count}
-            onClick={() => {
-              setFilters(emptyDocumentFilters);
-            }}
-          >
-            Clear filters
-          </button>
-        </div>
+            <div className="filter-select">
+              <label htmlFor="document-category">Document type</label>
+              <CustomSelect
+                id="document-category"
+                ariaLabel="Document type"
+                value={filters.document_category}
+                onChange={(value) => update("document_category", value)}
+                options={[
+                  { value: "", label: "All document types" },
+                  ...documentCategories.map((category) => ({
+                    value: category,
+                    label: categoryLabel(category),
+                  })),
+                ]}
+              />
+            </div>
+          </>
+        }
+        search={{
+          id: "document-search",
+          label: "Search filenames and descriptions",
+          value: filters.q,
+          placeholder: "Search files and descriptions…",
+          onChange: (value) => update("q", value),
+        }}
+        advanced={
+          <div className="advanced-filters document-advanced-filters">
+            <div className="filter-select">
+              <label htmlFor="document-event">Related event</label>
+              <CustomSelect
+                id="document-event"
+                value={filters.event_id}
+                disabled={!eventOptions.data}
+                onChange={(value) => update("event_id", value)}
+                options={[
+                  { value: "", label: "All events" },
+                  ...availableEvents.map((event) => ({
+                    value: event.id,
+                    label: `${eventDisplayTitle(event)} · ${formatDate(event.event_date)}`,
+                  })),
+                ]}
+              />
+              {eventOptions.error && (
+                <p className="field-error" role="alert">
+                  {eventOptions.error}{" "}
+                  <button className="text-link" onClick={eventOptions.retry}>
+                    Retry
+                  </button>
+                </p>
+              )}
+            </div>
+            <div className="filter-select">
+              <label htmlFor="document-from">Uploaded from</label>
+              <DatePicker
+                id="document-from"
+                value={filters.date_from}
+                optional
+                ariaLabel="From date"
+                placeholder="From date"
+                onChange={(value) => update("date_from", value)}
+              />
+            </div>
+            <div className="filter-select">
+              <label htmlFor="document-to">Uploaded through</label>
+              <DatePicker
+                id="document-to"
+                value={filters.date_to}
+                optional
+                min={filters.date_from}
+                ariaLabel="To date"
+                placeholder="To date"
+                onChange={(value) => update("date_to", value)}
+              />
+            </div>
+            <TagFilterPills
+              legend="Event tags"
+              items={tags}
+              selected={filters.tag_ids}
+              onChange={(ids) => update("tag_ids", ids.slice(0, 20))}
+              emptyText={labelsLoading ? undefined : "No tags are available."}
+              searchable
+              maxVisible={12}
+            />
+          </div>
+        }
+      >
         {selected.error && (
           <p className="field-error" role="alert">
             {selected.error}
@@ -397,7 +395,7 @@ export function DocumentsPage() {
             Updating search…
           </p>
         )}
-      </section>
+      </FilterBar>
       <DocumentResultsList
         key={JSON.stringify([selected.query, selected.error, revision])}
         query={selected.query}

@@ -1,6 +1,5 @@
 "use client";
 import { useProviders } from "../providers-context";
-import { Search, SlidersHorizontal } from "lucide-react";
 import { useEventTypes } from "../event-types";
 import { emptyFilters, filterQuery, type TrackerFilters } from "@/lib/tracker";
 import { useProfiles } from "../app-shell";
@@ -8,17 +7,18 @@ import { useTracker } from "./context";
 import type { ReactNode } from "react";
 import { TagFilterPills } from "../ui/labels";
 import { CustomSelect, DatePicker } from "../ui/pickers";
+import { FilterBar } from "../ui/filter-bar";
 export function useTrackerQuery() {
   const { filters, search } = useTracker();
   const { activeProfile } = useProfiles();
   return filterQuery({ ...filters, q: search }, activeProfile?.id);
 }
 export function TrackerFiltersBar({
-  extraFilters,
+  primaryFilter,
   extraFilterCount = 0,
   onClearExtra,
 }: {
-  extraFilters?: ReactNode;
+  primaryFilter?: ReactNode;
   extraFilterCount?: number;
   onClearExtra?: () => void;
 } = {}) {
@@ -47,109 +47,102 @@ export function TrackerFiltersBar({
     extraFilterCount;
   const error = filterQuery(filters).error;
   return (
-    <section className="card tracker-filters" aria-label="Filter health events">
-      <div className="filter-top">
-        <div className="search-field">
-          <Search size={18} />
-          <label className="sr-only" htmlFor="health-search">
-            Search health events
-          </label>
-          <input
-            id="health-search"
-            type="search"
-            value={filters.q}
-            maxLength={200}
-            placeholder="Search health events…"
-            onChange={(e) => update("q", e.target.value)}
-          />
-        </div>
-        <div className="filter-select">
-          <label htmlFor="filter-type">Event type</label>
-          <CustomSelect
-            id="filter-type"
-            value={filters.event_type}
-            onChange={(value) => update("event_type", value)}
-            options={[
-              { value: "", label: "All types" },
-              ...typeOptions.types.map((type) => ({
-                value: type.key,
-                label: `${type.name}${type.archived ? " (removed)" : ""}`,
-              })),
-            ]}
-          />
-        </div>
-      </div>
-      <div className="filter-footer">
-        <details className="filter-details">
-          <summary>
-            <SlidersHorizontal size={16} /> Filters{" "}
-            {count > 0 && <span className="filter-count">{count}</span>}
-          </summary>
-          <div className="advanced-filters">
-            {extraFilters}
-            <div className="filter-select">
-              <label htmlFor="filter-doctor">Doctor</label>
-              <CustomSelect
-                id="filter-doctor"
-                value={filters.provider_id ?? ""}
-                onChange={(value) => update("provider_id", value)}
-                disabled={doctors.loading}
-                options={[
-                  { value: "", label: "All doctors" },
-                  ...doctors.providers.map((provider) => ({
-                    value: provider.id,
-                    label: provider.name,
-                  })),
-                ]}
-              />
-              {doctors.error && (
-                <p className="field-error" role="alert">
-                  {doctors.error}{" "}
-                  <button onClick={doctors.reload} className="text-link">
-                    Retry
-                  </button>
-                </p>
-              )}
-            </div>
-            <div className="filter-select">
-              <label htmlFor="filter-from">From</label>
-              <DatePicker
-                id="filter-from"
-                value={filters.date_from}
-                optional
-                onChange={(value) => update("date_from", value)}
-              />
-            </div>
-            <div className="filter-select">
-              <label htmlFor="filter-to">Through</label>
-              <DatePicker
-                id="filter-to"
-                value={filters.date_to}
-                optional
-                min={filters.date_from}
-                onChange={(value) => update("date_to", value)}
-              />
-            </div>
-            <TagFilterPills
-              legend="Tags"
-              items={tags}
-              selected={filters.tag_ids}
-              onChange={(ids) => update("tag_ids", ids.slice(0, 20))}
-              emptyText={labelsLoading ? undefined : "No tags are available."}
+    <FilterBar
+      label="Filter health events"
+      count={count}
+      onClear={() => {
+        setFilters(emptyFilters);
+        onClearExtra?.();
+      }}
+      primary={
+        <>
+          <div className="filter-select">
+            <label htmlFor="filter-type">Event type</label>
+            <CustomSelect
+              id="filter-type"
+              ariaLabel="Event type"
+              value={filters.event_type}
+              onChange={(value) => update("event_type", value)}
+              options={[
+                { value: "", label: "All event types" },
+                ...typeOptions.types.map((type) => ({
+                  value: type.key,
+                  label: `${type.name}${type.archived ? " (removed)" : ""}`,
+                })),
+              ]}
             />
           </div>
-        </details>
-        <button
-          className="text-link"
-          disabled={!count}
-          onClick={() => {
-            setFilters(emptyFilters);
-            onClearExtra?.();
-          }}
-        >
-          Clear filters
-        </button>
-      </div>
+          {primaryFilter}
+        </>
+      }
+      search={{
+        id: "health-search",
+        label: "Search health events",
+        value: filters.q,
+        placeholder: "Search events, symptoms, appointments…",
+        onChange: (value) => update("q", value),
+      }}
+      advanced={
+        <div className="advanced-filters">
+          <div className="filter-select">
+            <label htmlFor="filter-doctor">Doctor</label>
+            <CustomSelect
+              id="filter-doctor"
+              value={filters.provider_id ?? ""}
+              onChange={(value) => update("provider_id", value)}
+              disabled={doctors.loading}
+              options={[
+                { value: "", label: "All doctors" },
+                ...doctors.providers.map((provider) => ({
+                  value: provider.id,
+                  label: provider.name,
+                })),
+              ]}
+            />
+            {doctors.error && (
+              <p className="field-error" role="alert">
+                {doctors.error}{" "}
+                <button onClick={doctors.reload} className="text-link">
+                  Retry
+                </button>
+              </p>
+            )}
+          </div>
+          <div className="filter-select">
+            <label htmlFor="filter-from">From</label>
+            <DatePicker
+              id="filter-from"
+              value={filters.date_from}
+              optional
+              ariaLabel="From date"
+              placeholder="From date"
+              onChange={(value) => update("date_from", value)}
+            />
+          </div>
+          <div className="filter-select">
+            <label htmlFor="filter-to">Through</label>
+            <DatePicker
+              id="filter-to"
+              value={filters.date_to}
+              optional
+              min={filters.date_from}
+              ariaLabel="To date"
+              placeholder="To date"
+              onChange={(value) => update("date_to", value)}
+            />
+          </div>
+          <TagFilterPills
+            legend="Tags"
+            items={tags}
+            selected={filters.tag_ids}
+            onChange={(ids) => update("tag_ids", ids.slice(0, 20))}
+            emptyText={labelsLoading ? undefined : "No tags are available."}
+            searchable
+            maxVisible={12}
+          />
+        </div>
+      }
+    >
       {error && (
         <p className="field-error" role="alert">
           {error}
@@ -168,6 +161,6 @@ export function TrackerFiltersBar({
           Updating search…
         </p>
       )}
-    </section>
+    </FilterBar>
   );
 }

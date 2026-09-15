@@ -1,6 +1,7 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { useId, useMemo, useState } from "react";
+import { Check, Search } from "lucide-react";
 import type { Label } from "@/lib/tracker";
 
 export function TagPill({ name }: { name: string }) {
@@ -13,19 +14,57 @@ export function TagFilterPills({
   selected,
   onChange,
   emptyText,
+  searchable = false,
+  maxVisible,
 }: {
   legend: string;
   items: Label[];
   selected: string[];
   onChange: (ids: string[]) => void;
   emptyText?: string;
+  searchable?: boolean;
+  maxVisible?: number;
 }) {
+  const [query, setQuery] = useState("");
+  const searchId = useId();
+  const visibleItems = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase();
+    const sorted = [...items].sort(
+      (a, b) =>
+        Number(selected.includes(b.id)) - Number(selected.includes(a.id)) ||
+        (b.usage_count ?? 0) - (a.usage_count ?? 0) ||
+        a.name.localeCompare(b.name),
+    );
+    const matches = normalized
+      ? sorted.filter((item) =>
+          item.name.toLocaleLowerCase().includes(normalized),
+        )
+      : sorted;
+    return maxVisible ? matches.slice(0, maxVisible) : matches;
+  }, [items, maxVisible, query, selected]);
   return (
-    <fieldset className="filter-labels">
+    <fieldset
+      className={`filter-labels ${searchable ? "searchable-filter-labels" : ""}`}
+    >
       <legend>{legend}</legend>
-      {items.length ? (
+      {searchable && (
+        <div className="tag-filter-search">
+          <Search size={16} aria-hidden="true" />
+          <label className="sr-only" htmlFor={searchId}>
+            Search tags
+          </label>
+          <input
+            id={searchId}
+            type="search"
+            value={query}
+            placeholder="Search tags…"
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </div>
+      )}
+      {visibleItems.length ? (
         <div className="label-pills">
-          {items.map((item) => {
+          {visibleItems.map((item) => {
             const active = selected.includes(item.id);
             return (
               <button
@@ -47,8 +86,10 @@ export function TagFilterPills({
             );
           })}
         </div>
+      ) : items.length ? (
+        <p className="muted tag-filter-empty">No matching tags.</p>
       ) : (
-        emptyText && <p className="muted">{emptyText}</p>
+        emptyText && <p className="muted tag-filter-empty">{emptyText}</p>
       )}
     </fieldset>
   );

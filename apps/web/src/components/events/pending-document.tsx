@@ -1,46 +1,51 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { FileText, Paperclip, Pencil, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import {
   attachmentError,
   attachmentTypes,
-  documentCategories,
   type Attachment,
   type DocumentCategory,
 } from "@/lib/attachments";
-import { categoryLabel } from "@/lib/documents";
+import { categoryLabel, type HealthDocument } from "@/lib/documents";
 import { DocumentCategoryPill } from "../ui/labels";
 import { CustomSelect } from "../ui/pickers";
+import { DocumentFormFields } from "../document-form-fields";
 
 export type PendingDocument = {
   file: File;
   mimeType: string;
   documentType: DocumentCategory;
   description: string;
+  tagIds: string[];
 };
+
+export type EventDocumentSelection =
+  | { source: "new"; document: PendingDocument }
+  | { source: "existing"; document: HealthDocument };
 
 export async function uploadPendingDocument(
   eventId: string,
   pending: PendingDocument,
 ) {
-  const base = `/api/v1/events/${eventId}/attachments`;
-  let reserved: Attachment | undefined;
+  const base = "/api/v1/events/" + eventId + "/attachments";
+  let reserved: Attachment | null = null;
   try {
-    reserved = (
-      await apiFetch<{ attachment: Attachment }>(base, undefined, {
-        method: "POST",
-        body: {
-          file_name: pending.file.name,
-          mime_type: pending.mimeType,
-          file_size: pending.file.size,
-          document_category: pending.documentType,
-          description: pending.description.trim() || null,
-        },
-      })
-    ).attachment;
+    const result = await apiFetch<{ attachment: Attachment }>(base, undefined, {
+      method: "POST",
+      body: {
+        file_name: pending.file.name,
+        mime_type: pending.mimeType,
+        file_size: pending.file.size,
+        document_category: pending.documentType,
+        description: pending.description || null,
+        tag_ids: pending.tagIds,
+      },
+    });
+    reserved = result.attachment;
     const { error } = await supabase!.storage
       .from("health-attachments")
       .upload(reserved.file_path, pending.file, {
@@ -52,35 +57,97 @@ export async function uploadPendingDocument(
     return reserved;
   } catch (cause) {
     if (reserved)
-      await apiFetch(`${base}/${reserved.id}`, undefined, {
+      await apiFetch(base + "/" + reserved.id, undefined, {
         method: "DELETE",
       }).catch(() => {});
     throw cause;
   }
 }
 
+export async function attachExistingDocument(
+  eventId: string,
+  document: HealthDocument,
+) {
+  const { data, error } = await supabase!.storage
+    .from("health-attachments")
+    .download(document.file_path);
+  if (error) throw new Error("The selected document could not be opened.");
+  const file = new File([data], document.file_name, {
+    type: document.mime_type,
+  });
+  return uploadPendingDocument(eventId, {
+    file,
+    mimeType: document.mime_type,
+    documentType: document.document_category,
+    description: document.description ?? "",
+    tagIds: document.tags.map((tag) => tag.id),
+  });
+}
+
 export function PendingDocumentPicker({
   value,
   onChange,
   disabled,
+  profileId,
+  currentEventId,
 }: {
-  value: PendingDocument | null;
-  onChange: (value: PendingDocument | null) => void;
+  value: EventDocumentSelection | null;
+  onChange: (value: EventDocumentSelection | null) => void;
   disabled: boolean;
+  profileId: string;
+  currentEventId?: string;
 }) {
-  const input = useRef<HTMLInputElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [documentType, setDocumentType] = useState<DocumentCategory>("other");
   const [description, setDescription] = useState("");
+  const [tagIds, setTagIds] = useState<string[]>([]);
+  const [tagBusy, setTagBusy] = useState(false);
+  const [fileInputKey, setFileInputKey] = useState(0);
   const [error, setError] = useState("");
+  const [documents, setDocuments] = useState<HealthDocument[]>([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(true);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoadingDocuments(true);
+    setError("");
+    apiFetch<{ documents: HealthDocument[] }>(
+      "/api/v1/documents/search",
+      controller.signal,
+      {
+        method: "POST",
+        body: {
+          ...(profileId ? { profile_id: profileId } : {}),
+          page: 1,
+          page_size: 100,
+        },
+      },
+    )
+      .then((result) =>
+        setDocuments(
+          result.documents.filter(
+            (document) => document.health_event_id !== currentEventId,
+          ),
+        ),
+      )
+      .catch((cause: Error) => {
+        if (!controller.signal.aborted)
+          setError(cause.message || "Unable to load documents.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingDocuments(false);
+      });
+    return () => controller.abort();
+  }, [currentEventId, profileId]);
 
   function close() {
     dialog.current?.close();
     setFile(null);
     setDescription("");
+    setTagIds([]);
     setDocumentType("other");
-    if (input.current) input.current.value = "";
+    setFileInputKey((key) => key + 1);
   }
 
   function choose(chosen: File) {
@@ -91,73 +158,110 @@ export function PendingDocumentPicker({
     const issue = attachmentError(chosen.name, chosen.size, mimeType);
     if (issue) {
       setError(issue);
-      if (input.current) input.current.value = "";
       return;
     }
     setError("");
     setFile(chosen);
-    setDocumentType(value?.documentType ?? "other");
-    setDescription(value?.description ?? "");
-    dialog.current?.showModal();
+    if (value?.source === "new") {
+      setDocumentType(value.document.documentType);
+      setDescription(value.document.description);
+      setTagIds(value.document.tagIds);
+    }
   }
 
+  const selected = value?.document;
+  const selectedName =
+    value?.source === "new"
+      ? value.document.file.name
+      : value?.source === "existing"
+        ? value.document.file_name
+        : "";
+  const selectedSize =
+    value?.source === "new"
+      ? value.document.file.size
+      : value?.source === "existing"
+        ? value.document.file_size
+        : 0;
+  const selectedCategory =
+    value?.source === "new"
+      ? value.document.documentType
+      : value?.source === "existing"
+        ? value.document.document_category
+        : "other";
+
   return (
-    <section className="event-document-field">
-      <div className="event-document-heading">
-        <div>
-          <h2>Document</h2>
-          <p className="form-hint">
-            Optional · PDF, image, or document · Up to 10 MB
-          </p>
+    <div className="event-document-field">
+      <div className="event-document-controls">
+        <div className="form-field">
+          <label htmlFor="existing-event-document">Document</label>
+          <CustomSelect
+            id="existing-event-document"
+            value={value?.source === "existing" ? value.document.id : ""}
+            disabled={disabled || loadingDocuments}
+            placeholder="Select existing document"
+            onChange={(id) => {
+              const document = documents.find((item) => item.id === id);
+              onChange(document ? { source: "existing", document } : null);
+            }}
+            options={[
+              {
+                value: "",
+                label: loadingDocuments
+                  ? "Loading documents…"
+                  : documents.length
+                    ? "Select existing document"
+                    : "No existing documents",
+              },
+              ...documents.map((document) => ({
+                value: document.id,
+                label: document.file_name + " · " + document.event_title,
+              })),
+            ]}
+          />
         </div>
-        <button
-          type="button"
-          className="button secondary-button"
-          disabled={disabled}
-          onClick={() => input.current?.click()}
-        >
-          <Paperclip size={16} /> {value ? "Replace" : "Add document"}
-        </button>
-      </div>
-      <input
-        ref={input}
-        className="sr-only"
-        type="file"
-        aria-label="Choose document"
-        accept={Object.keys(attachmentTypes)
-          .map((extension) => `.${extension}`)
-          .join(",")}
-        disabled={disabled}
-        onChange={(event) => {
-          const chosen = event.target.files?.[0];
-          if (chosen) choose(chosen);
-        }}
-      />
-      {value && (
-        <div className="pending-document">
-          <FileText size={22} aria-hidden="true" />
-          <div>
-            <strong>{value.file.name}</strong>
-            <span>
-              <DocumentCategoryPill name={categoryLabel(value.documentType)} />
-              {(value.file.size / 1024 / 1024).toFixed(2)} MB
-            </span>
-          </div>
+        <span className="document-choice-or">or</span>
+        <div className="provider-add-row document-add-row">
           <button
             type="button"
-            className="icon-button"
-            aria-label="Edit document details"
-            title="Edit"
+            className="text-link"
             disabled={disabled}
             onClick={() => {
-              setFile(value.file);
-              setDocumentType(value.documentType);
-              setDescription(value.description);
+              setError("");
               dialog.current?.showModal();
             }}
           >
-            <Pencil size={16} />
+            <Plus size={14} aria-hidden="true" /> Add document
           </button>
+        </div>
+      </div>
+      {selected && (
+        <div className="pending-document">
+          <FileText size={22} aria-hidden="true" />
+          <div>
+            <strong>{selectedName}</strong>
+            <span>
+              <DocumentCategoryPill name={categoryLabel(selectedCategory)} />
+              {(selectedSize / 1024 / 1024).toFixed(2)} MB
+            </span>
+          </div>
+          {value?.source === "new" && (
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Edit document details"
+              title="Edit"
+              disabled={disabled}
+              onClick={() => {
+                setFile(value.document.file);
+                setDocumentType(value.document.documentType);
+                setDescription(value.document.description);
+                setTagIds(value.document.tagIds);
+                dialog.current?.showModal();
+              }}
+            >
+              <Pencil size={16} />
+            </button>
+          )}
           <button
             type="button"
             className="icon-button danger-icon"
@@ -177,7 +281,7 @@ export function PendingDocumentPicker({
       )}
       <dialog
         ref={dialog}
-        className="delete-dialog attachment-upload-dialog"
+        className="delete-dialog attachment-upload-dialog form-dialog shared-document-dialog"
         aria-labelledby="new-event-document-title"
         onCancel={(event) => {
           event.preventDefault();
@@ -185,31 +289,23 @@ export function PendingDocumentPicker({
         }}
       >
         <h2 id="new-event-document-title">Add document</h2>
-        <p className="form-hint">{file?.name}</p>
-        <div className="field">
-          <label htmlFor="new-event-document-type">Document type</label>
-          <CustomSelect
-            id="new-event-document-type"
-            value={documentType}
-            onChange={(value) => setDocumentType(value as DocumentCategory)}
-            options={documentCategories.map((type) => ({
-              value: type,
-              label: categoryLabel(type),
-            }))}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="new-event-document-description">
-            Description <span>Optional</span>
-          </label>
-          <textarea
-            id="new-event-document-description"
-            value={description}
-            maxLength={2000}
-            rows={3}
-            onChange={(event) => setDescription(event.target.value)}
-          />
-        </div>
+        <DocumentFormFields
+          idPrefix="new-event-document"
+          documentType={documentType}
+          description={description}
+          tagIds={tagIds}
+          file={file}
+          disabled={disabled || tagBusy}
+          fileInputKey={fileInputKey}
+          onDocumentType={setDocumentType}
+          onDescription={setDescription}
+          onTags={setTagIds}
+          onTagBusyChange={setTagBusy}
+          onFile={(chosen) => {
+            if (chosen) choose(chosen);
+            else setFile(null);
+          }}
+        />
         <div className="form-actions">
           <button
             type="button"
@@ -221,7 +317,7 @@ export function PendingDocumentPicker({
           <button
             type="button"
             className="button"
-            disabled={!file}
+            disabled={!file || tagBusy}
             onClick={() => {
               if (!file) return;
               const mimeType =
@@ -230,7 +326,16 @@ export function PendingDocumentPicker({
                   file.name.split(".").pop()?.toLowerCase() ?? ""
                 ] ||
                 "";
-              onChange({ file, mimeType, documentType, description });
+              onChange({
+                source: "new",
+                document: {
+                  file,
+                  mimeType,
+                  documentType,
+                  description,
+                  tagIds,
+                },
+              });
               close();
             }}
           >
@@ -238,6 +343,6 @@ export function PendingDocumentPicker({
           </button>
         </div>
       </dialog>
-    </section>
+    </div>
   );
 }

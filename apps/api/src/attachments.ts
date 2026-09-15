@@ -19,6 +19,7 @@ export type AttachmentDataAccess = {
       file_size: number;
       document_category: DocumentCategory;
       description: string | null;
+      tag_ids: string[];
     },
   ): Promise<Attachment>;
   deleteAttachment(eventId: string, id: string): Promise<boolean>;
@@ -55,6 +56,7 @@ export function attachmentRouter() {
           .nullable()
           .optional()
           .transform((value) => value || null),
+        tag_ids: z.array(z.uuid()).max(20).optional().default([]),
       })
       .strict()
       .safeParse(req.body);

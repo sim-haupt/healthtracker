@@ -23,7 +23,11 @@ export type DetailField =
 export type Label = { id: string; name: string };
 export type HealthEvent = {
   disease?: string | null;
+  dose_number?: number | null;
+  dose_total?: number | null;
   next_dose_date?: string | null;
+  needs_renewal?: boolean;
+  renewal_date?: string | null;
   provider_id?: string | null;
   provider?: { id: string; name: string; specialty: string | null } | null;
   category_id: string | null;
@@ -51,6 +55,13 @@ export type EventInput = Omit<
   HealthEvent,
   "id" | "created_at" | "updated_at" | "category" | "tags" | "provider"
 >;
+export function eventDisplayTitle(
+  event: Pick<HealthEvent, "event_type" | "title" | "disease">,
+) {
+  return event.event_type === "Vaccination" && event.disease?.trim()
+    ? event.disease
+    : event.title;
+}
 export type EventSummary = Pick<
   HealthEvent,
   | "id"
@@ -60,7 +71,11 @@ export type EventSummary = Pick<
   | "event_date"
   | "end_date"
   | "disease"
+  | "dose_number"
+  | "dose_total"
   | "next_dose_date"
+  | "needs_renewal"
+  | "renewal_date"
   | "category_id"
   | "category"
   | "tags"
@@ -134,9 +149,17 @@ export function dateLabel(value: string) {
   return formatDateTime(value);
 }
 export type EventDraft = Record<
-  Exclude<keyof EventInput, "tag_ids">,
+  Exclude<
+    keyof EventInput,
+    "tag_ids" | "dose_number" | "dose_total" | "needs_renewal"
+  >,
   string
-> & { tag_ids: string[] };
+> & {
+  tag_ids: string[];
+  dose_number: string;
+  dose_total: string;
+  needs_renewal: boolean;
+};
 export function eventDraft(
   event?: HealthEvent,
   profileId = "",
@@ -144,7 +167,11 @@ export function eventDraft(
 ): EventDraft {
   return {
     disease: event?.disease ?? "",
+    dose_number: event?.dose_number ? String(event.dose_number) : "",
+    dose_total: event?.dose_total ? String(event.dose_total) : "",
     next_dose_date: event?.next_dose_date ?? "",
+    needs_renewal: event?.needs_renewal ?? false,
+    renewal_date: event?.renewal_date ?? "",
     profile_id: event?.profile_id ?? profileId,
     provider_id: event?.provider_id ?? "",
     category_id: event?.category_id ?? "",
@@ -175,13 +202,26 @@ export function validateDraft(
     errors.disease = "Use 300 characters or fewer.";
   if (draft.next_dose_date && !parseDay(draft.next_dose_date))
     errors.next_dose_date = "Enter a valid next-dose date.";
+  const validDose = (value: string) =>
+    !value || (/^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 3);
+  if (!validDose(draft.dose_number))
+    errors.dose_number = "Choose a dose from 1 to 3.";
+  if (!validDose(draft.dose_total))
+    errors.dose_total = "Choose a total from 1 to 3.";
+  if (
+    draft.dose_number &&
+    draft.dose_total &&
+    Number(draft.dose_number) > Number(draft.dose_total)
+  )
+    errors.dose_number = "Dose number cannot exceed the total doses.";
+  if (draft.renewal_date && !parseDay(draft.renewal_date))
+    errors.renewal_date = "Enter a valid renewal date.";
   if (draft.tag_ids.length > 20) errors.tag_ids = "Choose up to 20 tags.";
   if (!profileIds.includes(draft.profile_id))
     errors.profile_id = "Choose a health profile.";
   if (!draft.event_type || draft.event_type.length > 100)
     errors.event_type = "Choose an event type.";
-  if (!draft.title.trim()) errors.title = "Enter a title.";
-  else if (draft.title.trim().length > 300)
+  if (draft.title.trim().length > 300)
     errors.title = "Use 300 characters or fewer.";
   const validDate = (value: string) =>
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(value) &&
@@ -216,11 +256,15 @@ export function draftInput(
   return {
     ...draft,
     disease: draft.disease?.trim() || null,
+    dose_number: draft.dose_number ? Number(draft.dose_number) : null,
+    dose_total: draft.dose_total ? Number(draft.dose_total) : null,
     next_dose_date: draft.next_dose_date || null,
+    needs_renewal: draft.needs_renewal,
+    renewal_date: draft.needs_renewal ? draft.renewal_date || null : null,
     provider_id: draft.provider_id || null,
     category_id: draft.category_id || null,
     event_type: draft.event_type as EventType,
-    title: draft.title.trim(),
+    title: draft.title.trim() || "Untitled event",
     event_date: dateValue(draft.event_date, original?.event_date),
     end_date: draft.end_date
       ? dateValue(draft.end_date, original?.end_date)

@@ -1,21 +1,17 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
-import {
-  Syringe,
-  Plus,
-  Paperclip,
-  ArrowUpRight,
-  SlidersHorizontal,
-} from "lucide-react";
+import { useEffect, useState } from "react";
+import { Syringe, Plus, ArrowUpRight } from "lucide-react";
 import { useProfiles } from "./app-shell";
 import { useTracker } from "./tracker/context";
 import { TagFilterPills } from "./ui/labels";
 import { ProfileIdentity } from "./ui/profile-avatar";
 import { useTrackerResults, type EventResults } from "./tracker/use-results";
 import { LoadingState, ErrorState } from "./ui/feedback";
-import { dateLabel } from "@/lib/events";
+import { eventDisplayTitle } from "@/lib/events";
 import { formatDate } from "@/lib/date-format";
+import { FilterBar } from "./ui/filter-bar";
+import { ProfileColumns } from "./ui/profile-columns";
 function History({ query }: { query: Record<string, unknown> }) {
   const [page, setPage] = useState(1);
   const { profiles } = useProfiles();
@@ -44,53 +40,72 @@ function History({ query }: { query: Record<string, unknown> }) {
         {data.total} vaccination {data.total === 1 ? "entry" : "entries"} ·
         Newest first
       </p>
+      <ProfileColumns items={data.events} profileId={(event) => event.profile_id} noun="vaccination">
+        {(vaccinations) => (
       <ol className="vaccination-history">
-        {data.events.map((event) => (
+        {vaccinations.map((event) => (
           <li className="card vaccination-record" key={event.id}>
-            <span className="state-symbol">
-              <Syringe size={23} />
-            </span>
-            <div>
-              <ProfileIdentity
-                className="eyebrow"
-                name={
-                  profiles.find((p) => p.id === event.profile_id)?.name ??
-                  "Health profile"
-                }
-                avatar={profiles.find((p) => p.id === event.profile_id)?.avatar}
-              />
-              <Link href={`/events/${event.id}`}>
+            <Link
+              href={`/events/${event.id}`}
+              className="vaccination-card-link"
+            >
+              <span className="state-symbol">
+                <Syringe size={23} />
+              </span>
+              <div>
+                <div className="vaccination-card-meta">
+                  <ProfileIdentity
+                    className="eyebrow"
+                    name={
+                      profiles.find((p) => p.id === event.profile_id)?.name ??
+                      "Health profile"
+                    }
+                    avatar={
+                      profiles.find((p) => p.id === event.profile_id)?.avatar
+                    }
+                  />
+                  <time dateTime={event.event_date}>
+                    {formatDate(event.event_date)}
+                  </time>
+                </div>
                 <h2>
-                  {event.title}
+                  {eventDisplayTitle(event)}
                   <ArrowUpRight size={17} />
                 </h2>
-              </Link>
-              <p className="muted">
-                Administered{" "}
-                <time dateTime={event.event_date}>
-                  {dateLabel(event.event_date)}
-                </time>
-              </p>
-              <p>Disease: {event.disease || "Not recorded"}</p>
-              {event.next_dose_date && (
-                <p className="vaccination-next">
-                  Next recommended dose:{" "}
-                  <time dateTime={event.next_dose_date}>
-                    {formatDate(event.next_dose_date)}
-                  </time>
-                </p>
-              )}
-              <Link
-                className="text-link"
-                href={`/events/${event.id}#attachments-title`}
-              >
-                <Paperclip size={15} />
-                View or add attachments
-              </Link>
-            </div>
+                {(event.dose_number || event.dose_total) && (
+                  <span
+                    className={`vaccination-dose-pill ${event.dose_number && event.dose_total && event.dose_number >= event.dose_total ? "completed" : "pending"}`}
+                  >
+                    Dose {event.dose_number ?? "–"}/{event.dose_total ?? "–"}
+                  </span>
+                )}
+                {event.next_dose_date && (
+                  <p className="vaccination-next">
+                    Next dose:{" "}
+                    <time dateTime={event.next_dose_date}>
+                      {formatDate(event.next_dose_date)}
+                    </time>
+                  </p>
+                )}
+                {event.needs_renewal && (
+                  <p className="vaccination-next">
+                    Renewal date:{" "}
+                    {event.renewal_date ? (
+                      <time dateTime={event.renewal_date}>
+                        {formatDate(event.renewal_date)}
+                      </time>
+                    ) : (
+                      "Not set"
+                    )}
+                  </p>
+                )}
+              </div>
+            </Link>
           </li>
         ))}
       </ol>
+        )}
+      </ProfileColumns>
       <div className="card events-pagination">
         <span>
           Page {page} of {Math.ceil(data.total / 30)}
@@ -119,10 +134,17 @@ export function Vaccinations() {
   const { activeProfile } = useProfiles();
   const { tags, labelsLoading, labelError, reloadLabels } = useTracker();
   const [tagIds, setTagIds] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
+  const [querySearch, setQuerySearch] = useState("");
+  useEffect(() => {
+    const timer = window.setTimeout(() => setQuerySearch(search), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
   const query: Record<string, unknown> = {};
   if (activeProfile) query.profile_id = activeProfile.id;
   if (tagIds.length) query.tag_ids = tagIds;
-  const count = tagIds.length;
+  if (querySearch) query.q = querySearch;
+  const count = tagIds.length + Number(!!search);
   return (
     <>
       <div className="page-heading">
@@ -134,37 +156,34 @@ export function Vaccinations() {
           Record vaccination
         </Link>
       </div>
-      <section
-        className="card tracker-filters"
-        aria-label="Filter vaccinations"
+      <FilterBar
+        label="Filter vaccinations"
+        count={count}
+        onClear={() => {
+          setTagIds([]);
+          setSearch("");
+        }}
+        search={{
+          id: "vaccination-search",
+          label: "Search vaccinations",
+          value: search,
+          placeholder: "Search vaccinations…",
+          onChange: setSearch,
+        }}
+        advanced={
+          <div className="advanced-filters">
+            <TagFilterPills
+              legend="Tags"
+              items={tags}
+              selected={tagIds}
+              onChange={(ids) => setTagIds(ids.slice(0, 20))}
+              emptyText={labelsLoading ? undefined : "No tags are available."}
+              searchable
+              maxVisible={12}
+            />
+          </div>
+        }
       >
-        <div className="filter-footer vaccination-filter-footer">
-          <details className="filter-details">
-            <summary>
-              <SlidersHorizontal size={16} /> Filters{" "}
-              {count > 0 && <span className="filter-count">{count}</span>}
-            </summary>
-            <div className="advanced-filters">
-              <TagFilterPills
-                legend="Tags"
-                items={tags}
-                selected={tagIds}
-                onChange={(ids) => setTagIds(ids.slice(0, 20))}
-                emptyText={labelsLoading ? undefined : "No tags are available."}
-              />
-            </div>
-          </details>
-          <button
-            type="button"
-            className="text-link"
-            disabled={!count}
-            onClick={() => {
-              setTagIds([]);
-            }}
-          >
-            Clear filters
-          </button>
-        </div>
         {labelError && (
           <p className="field-error" role="alert">
             {labelError}{" "}
@@ -173,7 +192,12 @@ export function Vaccinations() {
             </button>
           </p>
         )}
-      </section>
+        {search !== querySearch && (
+          <p className="muted" role="status">
+            Updating search…
+          </p>
+        )}
+      </FilterBar>
       <History key={JSON.stringify(query)} query={query} />
     </>
   );

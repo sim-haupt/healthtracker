@@ -3,7 +3,7 @@ import { TagPill } from "../ui/labels";
 import { ProfileIdentity } from "../ui/profile-avatar";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { dateLabel, type EventSummary } from "@/lib/events";
+import { dateLabel, eventDisplayTitle, type EventSummary } from "@/lib/events";
 import { useProfiles } from "../app-shell";
 export function EventRows({
   events,
@@ -28,7 +28,7 @@ export function EventRows({
                     avatar={profile?.avatar}
                   />
                 </span>
-                <h3>{event.title}</h3>
+                <h3>{eventDisplayTitle(event)}</h3>
                 <time dateTime={event.event_date}>
                   {dateLabel(event.event_date)}
                 </time>

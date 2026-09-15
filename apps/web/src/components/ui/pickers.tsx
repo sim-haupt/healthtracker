@@ -159,6 +159,7 @@ export function DatePicker({
   optional = false,
   invalid = false,
   ariaLabel,
+  placeholder = "Choose a date",
 }: {
   id: string;
   value: string;
@@ -169,6 +170,7 @@ export function DatePicker({
   optional?: boolean;
   invalid?: boolean;
   ariaLabel?: string;
+  placeholder?: string;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const selectedDay = parseDay(value.slice(0, 10));
@@ -201,7 +203,7 @@ export function DatePicker({
     ? mode === "datetime"
       ? formatDateTime(new Date(value).toISOString())
       : formatDate(value)
-    : "Choose a date";
+    : placeholder;
 
   return (
     <div

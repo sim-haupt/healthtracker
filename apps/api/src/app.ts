@@ -10,6 +10,7 @@ import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 import type { UserDataAccess } from "./data.js";
 import { eventRouter, EventDataError, labelRouter } from "./events.js";
+import { reminderRouter } from "./reminders.js";
 export type VerifiedUser = { id: string };
 export type AppOptions = {
   frontendOrigin: string;
@@ -79,6 +80,7 @@ export function createApp(options: AppOptions) {
   app.use("/api/v1/providers", providerRouter());
   app.use("/api/v1/event-types", eventTypeRouter());
   app.use("/api/v1/episodes", episodeRouter());
+  app.use("/api/v1/reminders", reminderRouter());
   app.use("/api/v1/tags", labelRouter("tags"));
   app.use("/api/v1/categories", labelRouter("categories"));
   app.get("/api/v1/me", (_req, res) => {

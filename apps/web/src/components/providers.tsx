@@ -19,11 +19,13 @@ import {
   Star,
 } from "lucide-react";
 import { apiFetch, ApiError } from "@/lib/api";
-import { dateLabel, type HealthEvent } from "@/lib/events";
+import { dateLabel, eventDisplayTitle, type HealthEvent } from "@/lib/events";
 import type { Provider, ProviderInput } from "@/lib/providers";
 import { useProviders } from "./providers-context";
 import { useProfiles } from "./app-shell";
 import { ProfileIdentity } from "./ui/profile-avatar";
+import { RichTextContent } from "./ui/rich-text";
+import { FilterBar } from "./ui/filter-bar";
 import {
   ConfirmDialog,
   LoadingState,
@@ -107,7 +109,7 @@ function ProviderRating({
     </div>
   );
 }
-function ProviderEditor({
+export function ProviderEditor({
   provider,
   onClose,
   onSaved,
@@ -149,7 +151,9 @@ function ProviderEditor({
             ? draft.rating
               ? Number(draft.rating)
               : null
-            : draft[field].trim() || null,
+            : field === "name"
+              ? draft.name.trim() || "Unnamed provider"
+              : draft[field].trim() || null,
         ]),
       ) as ProviderInput;
       const { provider: saved } = await apiFetch<{ provider: Provider }>(
@@ -171,7 +175,7 @@ function ProviderEditor({
   return (
     <dialog
       ref={dialog}
-      className="delete-dialog provider-dialog"
+      className="delete-dialog provider-dialog structured-form-dialog"
       aria-labelledby="provider-editor-title"
       onCancel={(e) => {
         e.preventDefault();
@@ -187,8 +191,7 @@ function ProviderEditor({
             {providerFields.map((field) => (
               <div className={`form-field provider-field-${field}`} key={field}>
                 <label htmlFor={`provider-${field}`}>
-                  {fieldLabels[field]}{" "}
-                  {field !== "name" && <span>Optional</span>}
+                  {fieldLabels[field]}
                 </label>
                 {field === "rating" ? (
                   <ProviderRating
@@ -233,7 +236,6 @@ function ProviderEditor({
                             ? "tel"
                             : "text"
                     }
-                    required={field === "name"}
                     placeholder={field === "website" ? "https://…" : undefined}
                     onChange={(e) =>
                       setDraft((prev) => ({ ...prev, [field]: e.target.value }))
@@ -297,16 +299,18 @@ export function ProviderDirectory() {
         <LoadingState label="Loading your medical providers…" />
       ) : (
         <>
-          <div className="card tracker-filters form-field provider-search">
-            <label htmlFor="provider-search">Find a provider</label>
-            <input
-              type="search"
-              id="provider-search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Name or specialty"
-            />
-          </div>
+          <FilterBar
+            label="Find a provider"
+            count={Number(!!search)}
+            onClear={() => setSearch("")}
+            search={{
+              id: "provider-search",
+              label: "Find a provider",
+              value: search,
+              onChange: setSearch,
+              placeholder: "Search name or specialty…",
+            }}
+          />
           {visible.length ? (
             <div className="settings-grid provider-directory">
               {visible.map((provider) => (
@@ -469,9 +473,11 @@ function RelatedRecords({ id }: { id: string }) {
                             })()}
                             <span>· {dateLabel(event.event_date)}</span>
                           </span>
-                          <h3>{event.title}</h3>
+                          <h3>{eventDisplayTitle(event)}</h3>
                           {event[section.field] && (
-                            <p>{event[section.field]}</p>
+                            <RichTextContent
+                              value={String(event[section.field])}
+                            />
                           )}
                         </Link>
                       </li>
@@ -489,7 +495,7 @@ function RelatedRecords({ id }: { id: string }) {
               {data.events.map((event) => (
                 <li key={event.id}>
                   <Link className="text-link" href={`/events/${event.id}`}>
-                    {event.title}
+                    {eventDisplayTitle(event)}
                   </Link>
                   <span className="muted">
                     <EventTypeBadge type={event.event_type} /> ·{" "}

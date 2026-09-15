@@ -8,7 +8,19 @@ import {
 } from "react";
 import { apiFetch } from "@/lib/api";
 import { ConfirmDialog, useToast } from "./ui/feedback";
-import { Pencil, Trash2 } from "lucide-react";
+import {
+  Activity,
+  Bandage,
+  FlaskConical,
+  Pill,
+  Pencil,
+  Shapes,
+  Stethoscope,
+  Syringe,
+  Thermometer,
+  Trash2,
+  type LucideIcon,
+} from "lucide-react";
 export type ManagedEventType = {
   id: string;
   key: string;
@@ -63,12 +75,26 @@ export function useEventTypeStyle(key: string) {
     style: { "--event-color": type?.color ?? "#005461" } as CSSProperties,
   };
 }
+function eventTypeIcon(key: string, name: string): LucideIcon {
+  const value = `${key} ${name}`.toLowerCase();
+  if (/doctor|provider|visit/.test(value)) return Stethoscope;
+  if (/illness|sick|flu/.test(value)) return Thermometer;
+  if (/medication|medicine|prescription|drug/.test(value)) return Pill;
+  if (/vaccin|immun/.test(value)) return Syringe;
+  if (/exam|test|lab/.test(value)) return FlaskConical;
+  if (/injury|wound/.test(value)) return Bandage;
+  if (/symptom/.test(value)) return Activity;
+  return Shapes;
+}
 export function EventTypeBadge({ type }: { type: string }) {
   const value = useEventTypeStyle(type);
+  const Icon = eventTypeIcon(type, value.name);
   return (
     <span className="event-type-badge" style={value.style}>
-      <span aria-hidden className="event-type-dot" />
-      {value.name}
+      <span className="event-type-icon" aria-hidden="true">
+        <Icon size={13} strokeWidth={2.2} />
+      </span>
+      <span className="event-type-name">{value.name}</span>
     </span>
   );
 }

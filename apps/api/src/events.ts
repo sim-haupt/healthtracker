@@ -30,8 +30,30 @@ export const eventInputSchema = z
   .object({
     profile_id: z.uuid("Choose a valid health profile."),
     disease: shortText,
+    dose_number: z
+      .number()
+      .int()
+      .min(1)
+      .max(3)
+      .nullable()
+      .optional()
+      .default(null),
+    dose_total: z
+      .number()
+      .int()
+      .min(1)
+      .max(3)
+      .nullable()
+      .optional()
+      .default(null),
     next_dose_date: z.iso
       .date("Enter a valid next-dose date.")
+      .nullable()
+      .optional()
+      .default(null),
+    needs_renewal: z.boolean().optional().default(false),
+    renewal_date: z.iso
+      .date("Enter a valid renewal date.")
       .nullable()
       .optional()
       .default(null),
@@ -92,6 +114,16 @@ export const eventInputSchema = z
       path: ["end_date"],
       message: "End date must be on or after the start date.",
     },
+  )
+  .refine(
+    (value) =>
+      !value.dose_number ||
+      !value.dose_total ||
+      value.dose_number <= value.dose_total,
+    {
+      path: ["dose_number"],
+      message: "Dose number cannot exceed the total doses.",
+    },
   );
 export type EventInput = z.output<typeof eventInputSchema>;
 export type Label = { id: string; name: string };
@@ -110,6 +142,12 @@ export type EventSummary = Pick<
   | "title"
   | "event_date"
   | "end_date"
+  | "disease"
+  | "dose_number"
+  | "dose_total"
+  | "next_dose_date"
+  | "needs_renewal"
+  | "renewal_date"
   | "category_id"
   | "category"
   | "tags"

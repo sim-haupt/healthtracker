@@ -337,8 +337,8 @@ test("all supported types round-trip their simple form fields without losing hid
   assert.equal(fieldLabel("Doctor Visit", "treatment"), "What was done");
   assert.equal(fieldLabel("Illness", "description"), "How it felt");
   const draft = eventDraft(undefined, profile1);
-  assert.ok(validateDraft(draft, [profile1]).title);
-  draft.title = "Valid";
+  assert.equal(validateDraft(draft, [profile1]).title, undefined);
+  assert.equal(draftInput(draft).title, "Untitled event");
   draft.end_date = "2000-01-01T10:00:00";
   assert.ok(validateDraft(draft, [profile1]).end_date);
 });

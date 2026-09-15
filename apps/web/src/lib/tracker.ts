@@ -99,6 +99,16 @@ export type DashboardResult = {
     recent: EventSummary[];
     illnesses: EventSummary[];
     visits: EventSummary[];
+    reminders?: {
+      id: string;
+      profile_id: string;
+      source_event_id: string | null;
+      reminder_kind: "custom" | "next_dose" | "renewal";
+      title: string;
+      due_date: string;
+      recurrence: "none" | "monthly" | "yearly";
+      status: "scheduled";
+    }[];
     vaccination_doses?: {
       id: string;
       title: string;

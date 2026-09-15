@@ -3,6 +3,7 @@ import { EventTypeBadge } from "../event-types";
 import { LoadingState, useToast } from "../ui/feedback";
 import { ProfileIdentity } from "../ui/profile-avatar";
 import { TagPill } from "../ui/labels";
+import { RichTextContent } from "../ui/rich-text";
 import {
   Stethoscope,
   HeartPulse,
@@ -10,17 +11,49 @@ import {
   Pill,
   NotebookPen,
   FileText,
+  Bell,
 } from "lucide-react";
 import { EventAttachments } from "./attachments";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Pencil, Trash2, CalendarDays } from "lucide-react";
 import { apiFetch, ApiError } from "@/lib/api";
-import { dateLabel, fieldLabel } from "@/lib/events";
+import { dateLabel, eventDisplayTitle, fieldLabel } from "@/lib/events";
 import { formatDate } from "@/lib/date-format";
 import { useProfiles } from "../app-shell";
 import { useEvent } from "./use-event";
+import type { Reminder } from "@/lib/reminders";
+
+function EventReminders({ eventId }: { eventId: string }) {
+  const [reminders, setReminders] = useState<Reminder[]>();
+  useEffect(() => {
+    const controller = new AbortController();
+    apiFetch<{ reminders: Reminder[] }>(
+      `/api/v1/reminders?source_event_id=${eventId}&page_size=20`,
+      controller.signal,
+    ).then((result) => setReminders(result.reminders)).catch(() => {});
+    return () => controller.abort();
+  }, [eventId]);
+  if (!reminders?.length) return null;
+  return (
+    <section className="clinical-section event-reminder-detail" id="event-reminders">
+      <div className="clinical-heading">
+        <span className="state-symbol"><Bell size={22} /></span>
+        <h2>Reminders</h2>
+      </div>
+      <ul>
+        {reminders.map((reminder) => (
+          <li key={reminder.id}>
+            <div><strong>{reminder.title}</strong><time dateTime={reminder.due_date}>{formatDate(reminder.due_date)}</time></div>
+            <span className={`reminder-status-pill ${reminder.status}`}>{reminder.status}</span>
+          </li>
+        ))}
+      </ul>
+      <Link className="text-link" href="/reminders">View reminders</Link>
+    </section>
+  );
+}
 export function EventDetail({ id }: { id: string }) {
   const { event, error, retry } = useEvent(id);
   const { profiles } = useProfiles();
@@ -79,7 +112,7 @@ export function EventDetail({ id }: { id: string }) {
           <p className="eyebrow">
             <EventTypeBadge type={event.event_type} />
           </p>
-          <h1>{event.title}</h1>
+          <h1>{eventDisplayTitle(event)}</h1>
           <ProfileIdentity
             name={profile?.name ?? "Health profile"}
             avatar={profile?.avatar}
@@ -191,8 +224,12 @@ export function EventDetail({ id }: { id: string }) {
                 <dd>{event.title}</dd>
               </div>
               <div>
-                <dt>Disease</dt>
-                <dd>{event.disease || "Not recorded"}</dd>
+                <dt>Dose</dt>
+                <dd>
+                  {event.dose_number || event.dose_total
+                    ? `${event.dose_number ?? "–"}/${event.dose_total ?? "–"}`
+                    : "Not recorded"}
+                </dd>
               </div>
               <div>
                 <dt>Next recommended dose</dt>
@@ -206,6 +243,24 @@ export function EventDetail({ id }: { id: string }) {
                   )}
                 </dd>
               </div>
+              <div>
+                <dt>Needs to be renewed?</dt>
+                <dd>{event.needs_renewal ? "Yes" : "No"}</dd>
+              </div>
+              {event.needs_renewal && (
+                <div>
+                  <dt>Renewal date</dt>
+                  <dd>
+                    {event.renewal_date ? (
+                      <time dateTime={event.renewal_date}>
+                        {formatDate(event.renewal_date)}
+                      </time>
+                    ) : (
+                      "Not recorded"
+                    )}
+                  </dd>
+                </div>
+              )}
             </dl>
           </div>
         )}
@@ -255,10 +310,12 @@ export function EventDetail({ id }: { id: string }) {
                 </span>
                 <h2>{title}</h2>
               </div>
-              <p>{event[field]}</p>
+              <RichTextContent value={String(event[field])} />
             </section>
           ))}
       </div>
+
+      <EventReminders eventId={event.id} />
 
       <p className="event-updated">
         Last updated {dateLabel(event.updated_at)}

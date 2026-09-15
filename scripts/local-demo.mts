@@ -160,6 +160,10 @@ for (const input of [
       )
     ).rows[0].result,
   );
+await db.query(
+  "insert into public.reminders(profile_id,source_event_id,title,due_date,recurrence) values($1,$2,'Annual blood test',$3,'yearly'),($4,null,'Skin screening',$5,'yearly')",
+  [profiles[0].id, events[4].id, day(345), profiles[1].id, day(180)],
+);
 for (const input of [
   {
     title:
@@ -337,6 +341,7 @@ const tables = new Set([
   "tags",
   "health_episodes",
   "health_episode_events",
+  "reminders",
 ]);
 local.all(
   "/rest/v1/:table",
@@ -352,11 +357,22 @@ local.all(
       const filters: string[] = [];
       for (const [k, v] of Object.entries(req.query)) {
         if (["select", "order", "offset", "limit"].includes(k)) continue;
-        if (typeof v !== "string" || !v.startsWith("eq."))
-          throw new Error("Unsupported filter");
-        filters.push(`${identifier(k)}=${bind(v.slice(3))}`);
+        if (typeof v !== "string") throw new Error("Unsupported filter");
+        if (v.startsWith("eq."))
+          filters.push(`${identifier(k)}=${bind(v.slice(3))}`);
+        else if (v.startsWith("gte."))
+          filters.push(`${identifier(k)}>=${bind(v.slice(4))}`);
+        else if (v.startsWith("lte."))
+          filters.push(`${identifier(k)}<=${bind(v.slice(4))}`);
+        else if (v.startsWith("ilike."))
+          filters.push(`${identifier(k)} ilike ${bind(v.slice(6))}`);
+        else if (v.startsWith("in.(") && v.endsWith(")")) {
+          const values = v.slice(4, -1).split(",");
+          filters.push(`${identifier(k)} in (${values.map(bind).join(",")})`);
+        } else throw new Error("Unsupported filter");
       }
       const where = filters.length ? " where " + filters.join(" and ") : "";
+      const filterParamCount = params.length;
       const select = String(req.query.select ?? "*")
         .split(",")
         .map((s) => (s === "*" ? "*" : identifier(s.trim())))
@@ -398,7 +414,7 @@ local.all(
         const count: any = await scoped((tx) =>
           tx.query(
             `select count(*) as n from ${table}${where}`,
-            params.slice(0, filters.length),
+            params.slice(0, filterParamCount),
           ),
         );
         res.setHeader(
@@ -547,8 +563,13 @@ if (process.argv.includes("--check")) {
   );
   if (demoProvider.rows[0]?.rating !== 5)
     throw new Error("Demo provider rating missing.");
+  const demoReminders: any = await scoped((tx) =>
+    tx.query("select count(*) as n from public.reminders"),
+  );
+  if (Number(demoReminders.rows[0]?.n) < 3)
+    throw new Error("Demo reminders missing.");
   console.log(
-    "Demo data verified: 2 profiles, 9 events, 2 episodes, 1 document, 1 rated provider.",
+    "Demo data verified: 2 profiles, 9 events, 2 episodes, 3 reminders, 1 document, 1 rated provider.",
   );
   await db.close();
   process.exit(0);

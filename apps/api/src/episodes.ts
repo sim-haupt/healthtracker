@@ -8,7 +8,6 @@ export const episodeSchema = z
     profile_id: z.uuid(),
     start_date: z.iso.date(),
     end_date: z.iso.date().nullable().default(null),
-    status: z.enum(["active", "resolved"]),
     description: z.string().trim().max(5000).default(""),
     event_ids: z.array(z.uuid()).max(500).default([]),
   })
@@ -16,7 +15,11 @@ export const episodeSchema = z
   .refine((v) => !v.end_date || v.end_date >= v.start_date, {
     path: ["end_date"],
     message: "End date must be on or after start date.",
-  });
+  })
+  .transform((value) => ({
+    ...value,
+    status: value.end_date ? ("resolved" as const) : ("active" as const),
+  }));
 export type EpisodeInput = z.output<typeof episodeSchema>;
 export type Episode = Omit<EpisodeInput, "event_ids"> & {
   id: string;
