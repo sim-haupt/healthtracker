@@ -27,6 +27,7 @@ export function useTrackerResults<T>(
       let data: T = await apiFetch<T>(endpoint, controller.signal, {
         method: "POST",
         body: query,
+        cache: "session",
       });
       if (options.allPages) {
         const first = data as EventResults;
@@ -39,6 +40,7 @@ export function useTrackerResults<T>(
             {
               method: "POST",
               body: { ...query, page: ++page, page_size: 100 },
+              cache: "session",
             },
           );
           if (!next.events.length || next.total !== first.total)

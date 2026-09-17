@@ -28,6 +28,8 @@ import {
 } from "lucide-react";
 import { TrackerProvider } from "./tracker/context";
 import { supabase } from "@/lib/supabase";
+import { clearApiCache } from "@/lib/api";
+import { preloadWorkspaceData } from "@/lib/preload";
 export type HealthProfile = {
   id: string;
   name: string;
@@ -120,8 +122,7 @@ export function AppShell({
       : "No health profiles are available. Contact the workspace owner.",
   );
   const [open, setOpen] = useState(false);
-  const [profiles, setProfiles] =
-    useState<HealthProfile[]>(initialProfiles);
+  const [profiles, setProfiles] = useState<HealthProfile[]>(initialProfiles);
   const [profileId, setProfileId] = useState("");
   const activeProfile = profiles.find((item) => item.id === profileId) ?? null;
   useEffect(() => {
@@ -148,6 +149,24 @@ export function AppShell({
       subscription.unsubscribe();
     };
   }, [router, userId]);
+  useEffect(() => {
+    let cancelled = false;
+    const preload = () => {
+      if (!cancelled) void preloadWorkspaceData();
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      const idle = window.requestIdleCallback(preload, { timeout: 1_500 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback(idle);
+      };
+    }
+    const timer = setTimeout(preload, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [userId]);
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
@@ -187,6 +206,7 @@ export function AppShell({
     };
   }, [open]);
   async function signOut() {
+    clearApiCache();
     const result = await supabase?.auth.signOut({ scope: "local" });
     if (result?.error) {
       setError("Could not sign out. Please try again.");
