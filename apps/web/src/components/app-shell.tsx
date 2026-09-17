@@ -28,7 +28,6 @@ import {
 } from "lucide-react";
 import { TrackerProvider } from "./tracker/context";
 import { supabase } from "@/lib/supabase";
-import { apiFetch, ApiError } from "@/lib/api";
 export type HealthProfile = {
   id: string;
   name: string;
@@ -61,19 +60,68 @@ const navigation = [
   { href: "/reminders", label: "Reminders", icon: Bell },
 ];
 const pageLabels = [...navigation, { href: "/settings", label: "Settings" }];
+function RouteDataProviders({
+  pathname,
+  children,
+}: {
+  pathname: string;
+  children: React.ReactNode;
+}) {
+  const matches = (routes: string[]) =>
+    routes.some(
+      (route) => pathname === route || pathname.startsWith(`${route}/`),
+    );
+  let content = children;
+  if (
+    matches([
+      "/dashboard",
+      "/timeline",
+      "/calendar",
+      "/events",
+      "/episodes",
+      "/documents",
+      "/providers",
+      "/settings",
+    ])
+  )
+    content = <EventTypesProvider>{content}</EventTypesProvider>;
+  if (
+    matches([
+      "/timeline",
+      "/calendar",
+      "/events",
+      "/episodes",
+      "/documents",
+      "/vaccinations",
+      "/providers",
+      "/settings",
+    ])
+  )
+    content = <TrackerProvider>{content}</TrackerProvider>;
+  if (matches(["/timeline", "/calendar", "/events", "/providers"]))
+    content = <ProvidersProvider>{content}</ProvidersProvider>;
+  return content;
+}
 export function AppShell({
   children,
   userId,
+  initialProfiles,
 }: {
   children: React.ReactNode;
   userId: string;
+  initialProfiles: HealthProfile[];
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState("");
+  const [ready, setReady] = useState(initialProfiles.length > 0);
+  const [error, setError] = useState(
+    initialProfiles.length
+      ? ""
+      : "No health profiles are available. Contact the workspace owner.",
+  );
   const [open, setOpen] = useState(false);
-  const [profiles, setProfiles] = useState<HealthProfile[]>([]);
+  const [profiles, setProfiles] =
+    useState<HealthProfile[]>(initialProfiles);
   const [profileId, setProfileId] = useState("");
   const activeProfile = profiles.find((item) => item.id === profileId) ?? null;
   useEffect(() => {
@@ -81,54 +129,22 @@ export function AppShell({
       router.replace("/login");
       return;
     }
-    let active = true;
-    const controller = new AbortController();
-    apiFetch<{ profiles: HealthProfile[] }>(
-      "/api/v1/profiles",
-      controller.signal,
-    )
-      .then(({ profiles: loaded }) => {
-        if (!active) return;
-        if (!loaded.length) {
-          setError(
-            "No health profiles are available. Contact the workspace owner.",
-          );
-          return;
-        }
-        setProfiles(loaded);
-
-        setReady(true);
-      })
-      .catch((e: Error) => {
-        if (!active) return;
-        if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
-          router.replace(
-            e.status === 403 ? "/login?access=unavailable" : "/login",
-          );
-        } else setError(e.message);
-      });
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (session && session.user.id !== userId) {
-        active = false;
-        controller.abort();
         setReady(false);
         setProfiles([]);
         window.location.replace("/dashboard");
         return;
       }
       if (event === "SIGNED_OUT") {
-        active = false;
-        controller.abort();
         setReady(false);
         setProfiles([]);
         window.location.replace("/login");
       }
     });
     return () => {
-      active = false;
-      controller.abort();
       subscription.unsubscribe();
     };
   }, [router, userId]);
@@ -210,149 +226,145 @@ export function AppShell({
       }}
     >
       <ToastProvider>
-        <ProvidersProvider>
-          <EventTypesProvider>
-            <TrackerProvider>
-              <div className="app-shell">
-                <a className="skip-link" href="#main">
-                  Skip to content
-                </a>
-                {open && (
-                  <button
-                    className="nav-backdrop"
-                    aria-label="Close navigation"
-                    onClick={() => setOpen(false)}
-                  />
-                )}
-                <aside
-                  className={`sidebar ${open ? "is-open" : ""}`}
-                  aria-label="Main navigation"
-                >
+        <RouteDataProviders pathname={pathname}>
+          <div className="app-shell">
+            <a className="skip-link" href="#main">
+              Skip to content
+            </a>
+            {open && (
+              <button
+                className="nav-backdrop"
+                aria-label="Close navigation"
+                onClick={() => setOpen(false)}
+              />
+            )}
+            <aside
+              className={`sidebar ${open ? "is-open" : ""}`}
+              aria-label="Main navigation"
+            >
+              <Link
+                className="brand"
+                href="/dashboard"
+                onClick={() => setOpen(false)}
+              >
+                <span className="brand-mark">
+                  <Activity size={24} />
+                </span>
+                Health tracker
+              </Link>
+              <button
+                className="mobile-close icon-button"
+                onClick={() => setOpen(false)}
+                aria-label="Close navigation"
+              >
+                <X />
+              </button>
+
+              <nav>
+                {navigation.map(({ href, label, icon: Icon }) => (
                   <Link
-                    className="brand"
-                    href="/dashboard"
+                    key={href}
+                    href={href}
                     onClick={() => setOpen(false)}
+                    className={`nav-item ${pathname === href || pathname.startsWith(`${href}/`) ? "active" : ""}`}
+                    aria-current={
+                      pathname === href || pathname.startsWith(`${href}/`)
+                        ? "page"
+                        : undefined
+                    }
                   >
-                    <span className="brand-mark">
-                      <Activity size={24} />
-                    </span>
-                    Health tracker
+                    <Icon size={20} />
+                    {label}
                   </Link>
+                ))}
+              </nav>
+              <div className="sidebar-bottom">
+                <button className="nav-item sign-out" onClick={signOut}>
+                  <LogOut size={19} />
+                  Sign out
+                </button>
+              </div>
+            </aside>
+            <div className="workspace">
+              <header className="header">
+                <div className="header-context">
                   <button
-                    className="mobile-close icon-button"
-                    onClick={() => setOpen(false)}
-                    aria-label="Close navigation"
+                    className="icon-button mobile-menu"
+                    aria-label="Open navigation"
+                    aria-expanded={open}
+                    onClick={() => setOpen(true)}
                   >
-                    <X />
+                    <Menu />
                   </button>
 
-                  <nav>
-                    {navigation.map(({ href, label, icon: Icon }) => (
-                      <Link
-                        key={href}
-                        href={href}
-                        onClick={() => setOpen(false)}
-                        className={`nav-item ${pathname === href || pathname.startsWith(`${href}/`) ? "active" : ""}`}
-                        aria-current={
-                          pathname === href || pathname.startsWith(`${href}/`)
-                            ? "page"
-                            : undefined
-                        }
-                      >
-                        <Icon size={20} />
-                        {label}
-                      </Link>
-                    ))}
-                  </nav>
-                  <div className="sidebar-bottom">
-                    <button className="nav-item sign-out" onClick={signOut}>
-                      <LogOut size={19} />
-                      Sign out
-                    </button>
-                  </div>
-                </aside>
-                <div className="workspace">
-                  <header className="header">
-                    <div className="header-context">
-                      <button
-                        className="icon-button mobile-menu"
-                        aria-label="Open navigation"
-                        aria-expanded={open}
-                        onClick={() => setOpen(true)}
-                      >
-                        <Menu />
-                      </button>
-
-                      <strong>
-                        {
-                          pageLabels.find(
-                            (n) =>
-                              pathname === n.href ||
-                              pathname.startsWith(`${n.href}/`),
-                          )?.label
-                        }
-                      </strong>
-                    </div>
-                    <div className="profile-control">
-                      {activeProfile ? (
-                        <ProfileAvatar
-                          name={activeProfile.name}
-                          avatar={activeProfile.avatar}
-                        />
-                      ) : (
-                        <ProfileAvatarGroup profiles={profiles} />
-                      )}
-                      <label className="sr-only" htmlFor="profile">
-                        Active health profile
-                      </label>
-                      <CustomSelect
-                        id="profile"
-                        value={profileId}
-                        ariaLabel="Active health profile"
-                        onChange={setProfileId}
-                        options={[
-                          { value: "", label: "Both profiles" },
-                          ...profiles.map((profile) => ({
-                            value: profile.id,
-                            label: profile.name,
-                            content: (
-                              <ProfileIdentity
-                                name={profile.name}
-                                avatar={profile.avatar}
-                              />
-                            ),
-                          })),
-                        ]}
-                      />
-                      <Link
-                        href="/settings"
-                        className={`icon-button header-settings ${pathname === "/settings" || pathname.startsWith("/settings/") ? "active" : ""}`}
-                        aria-label="Settings"
-                        aria-current={
-                          pathname === "/settings" ||
-                          pathname.startsWith("/settings/")
-                            ? "page"
-                            : undefined
-                        }
-                        title="Settings"
-                      >
-                        <Settings2 size={20} />
-                      </Link>
-                    </div>
-                  </header>
-                  <main id="main" className="main-content">
-                    {error && (
-                      <p role="alert" className="form-error">
-                        {error}
-                      </p>
-                    )}
-                    {children}
-                  </main>
+                  <strong>
+                    {
+                      pageLabels.find(
+                        (n) =>
+                          pathname === n.href ||
+                          pathname.startsWith(`${n.href}/`),
+                      )?.label
+                    }
+                  </strong>
                 </div>
-              </div>
-            </TrackerProvider>
-          </EventTypesProvider>
-        </ProvidersProvider>
+                <div className="profile-control">
+                  {activeProfile ? (
+                    <ProfileAvatar
+                      name={activeProfile.name}
+                      avatar={activeProfile.avatar}
+                    />
+                  ) : (
+                    <ProfileAvatarGroup profiles={profiles} />
+                  )}
+                  <label className="sr-only" htmlFor="profile">
+                    Active health profile
+                  </label>
+                  <CustomSelect
+                    id="profile"
+                    value={profileId}
+                    ariaLabel="Active health profile"
+                    onChange={setProfileId}
+                    options={[
+                      { value: "", label: "Both profiles" },
+                      ...profiles.map((profile) => ({
+                        value: profile.id,
+                        label: profile.name,
+                        content: (
+                          <ProfileIdentity
+                            name={profile.name}
+                            avatar={profile.avatar}
+                          />
+                        ),
+                      })),
+                    ]}
+                  />
+                  <Link
+                    href="/settings"
+                    className={`icon-button header-settings ${pathname === "/settings" || pathname.startsWith("/settings/") ? "active" : ""}`}
+                    aria-label="Settings"
+                    aria-current={
+                      pathname === "/settings" ||
+                      pathname.startsWith("/settings/")
+                        ? "page"
+                        : undefined
+                    }
+                    title="Settings"
+                  >
+                    <Settings2 size={20} />
+                  </Link>
+                </div>
+              </header>
+              <main id="main" className="main-content">
+                {error && (
+                  <p role="alert" className="form-error">
+                    {error}
+                  </p>
+                )}
+                {children}
+              </main>
+            </div>
+          </div>
+        </RouteDataProviders>
       </ToastProvider>
     </ProfileContext.Provider>
   );

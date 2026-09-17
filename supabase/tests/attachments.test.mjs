@@ -587,6 +587,15 @@ test("private attachments enforce database and Storage isolation and upload cons
       episodeId = saved.id;
       assert.equal(saved.events.length, 1);
       assert.equal(saved.status, "active");
+      const dashboard = (
+        await db.query("select public.health_dashboard('{}') as result")
+      ).rows[0].result;
+      assert.deepEqual(
+        dashboard.profiles
+          .find((profile) => profile.profile_id === event.profile_id)
+          .active_episodes.map((episode) => episode.id),
+        [episodeId],
+      );
       const entries = await timeline({}, "episode");
       assert.equal(entries.total, 1);
       assert.equal(entries.items[0].event_id, episodeId);

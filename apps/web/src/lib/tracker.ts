@@ -93,9 +93,7 @@ export function calendarEventSegments(
     const candidates = events
       .map((event) => {
         const occupied = weekDays
-          .map((day, index) =>
-            eventsOnDay([event], day).length ? index : -1,
-          )
+          .map((day, index) => (eventsOnDay([event], day).length ? index : -1))
           .filter((index) => index >= 0);
         if (!occupied.length) return null;
         const startColumn = occupied[0] + 1;
@@ -114,7 +112,8 @@ export function calendarEventSegments(
               ),
             ).length > 0,
           continuesAfter:
-            eventsOnDay([event], nextDay(weekDays[weekDays.length - 1])).length > 0,
+            eventsOnDay([event], nextDay(weekDays[weekDays.length - 1]))
+              .length > 0,
         };
       })
       .filter((item): item is NonNullable<typeof item> => !!item)
@@ -159,6 +158,14 @@ export type DashboardResult = {
   profiles: {
     profile_id: string;
     total: number;
+    active_episodes?: {
+      id: string;
+      profile_id: string;
+      title: string;
+      start_date: string;
+      end_date: string | null;
+      status: "active";
+    }[];
     upcoming: EventSummary[];
     recent: EventSummary[];
     illnesses: EventSummary[];

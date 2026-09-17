@@ -24,12 +24,10 @@ const app = createApp({
     ),
   trustProxyHops: config.TRUST_PROXY_HOPS,
   async verifyToken(token) {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser(token);
-    if (error || !user) return null;
-    return { id: user.id };
+    const { data, error } = await supabase.auth.getClaims(token);
+    const id = data?.claims?.sub;
+    if (error || typeof id !== "string") return null;
+    return { id };
   },
 });
 const server = app.listen(config.PORT, "0.0.0.0", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -10,12 +10,10 @@ import {
   Layers,
   Plus,
 } from "lucide-react";
-import { apiFetch } from "@/lib/api";
 import { formatDate } from "@/lib/date-format";
 import { eventDisplayTitle, type EventSummary } from "@/lib/events";
 import type { DashboardResult } from "@/lib/tracker";
 import { useProfiles } from "./app-shell";
-import type { Episode } from "./episodes";
 import { EventTypeBadge } from "./event-types";
 import { useTrackerResults } from "./tracker/use-results";
 import { ErrorState, LoadingState } from "./ui/feedback";
@@ -75,47 +73,11 @@ function DashboardEventList({
   );
 }
 
-function ActiveEpisodes({ profileId }: { profileId: string }) {
-  const [episodes, setEpisodes] = useState<Episode[]>();
-  const [error, setError] = useState("");
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setEpisodes(undefined);
-    setError("");
-    apiFetch<{ episodes: Episode[] }>(
-      "/api/v1/episodes?profile_id=" + profileId,
-      controller.signal,
-    )
-      .then((result) =>
-        setEpisodes(
-          result.episodes
-            .filter((episode) => episode.status === "active")
-            .sort((a, b) => b.start_date.localeCompare(a.start_date)),
-        ),
-      )
-      .catch((cause: Error) => {
-        if (!controller.signal.aborted) setError(cause.message);
-      });
-    return () => controller.abort();
-  }, [attempt, profileId]);
-
-  if (error)
-    return (
-      <p className="dashboard-card-empty" role="alert">
-        Episodes unavailable.{" "}
-        <button className="text-link" onClick={() => setAttempt((n) => n + 1)}>
-          Retry
-        </button>
-      </p>
-    );
-  if (!episodes)
-    return (
-      <p className="dashboard-card-empty" role="status">
-        Loading…
-      </p>
-    );
+function ActiveEpisodes({
+  episodes = [],
+}: {
+  episodes?: DashboardResult["profiles"][number]["active_episodes"];
+}) {
   if (!episodes.length)
     return <p className="dashboard-card-empty">No active episodes.</p>;
 
@@ -142,9 +104,7 @@ function ActiveEpisodes({ profileId }: { profileId: string }) {
 function ReminderList({
   reminders = [],
 }: {
-  reminders?: NonNullable<
-    DashboardResult["profiles"][number]["reminders"]
-  >;
+  reminders?: NonNullable<DashboardResult["profiles"][number]["reminders"]>;
 }) {
   if (!reminders.length)
     return <p className="dashboard-card-empty">No reminders.</p>;
@@ -152,7 +112,13 @@ function ReminderList({
     <ul className="dashboard-reminder-list">
       {reminders.slice(0, 3).map((reminder) => (
         <li key={reminder.id}>
-          <Link href={reminder.source_event_id ? "/events/" + reminder.source_event_id : "/reminders"}>
+          <Link
+            href={
+              reminder.source_event_id
+                ? "/events/" + reminder.source_event_id
+                : "/reminders"
+            }
+          >
             <span className="dashboard-reminder-icon" aria-hidden="true">
               <Bell size={15} />
             </span>
@@ -162,7 +128,9 @@ function ReminderList({
                 <time dateTime={reminder.due_date}>
                   {formatDate(reminder.due_date)}
                 </time>
-                {reminder.recurrence !== "none" ? ` · ${reminder.recurrence}` : ""}
+                {reminder.recurrence !== "none"
+                  ? ` · ${reminder.recurrence}`
+                  : ""}
               </span>
             </span>
           </Link>
@@ -219,7 +187,7 @@ export function Dashboard() {
                     href="/episodes"
                     linkLabel="View episodes"
                   >
-                    <ActiveEpisodes profileId={group.profile_id} />
+                    <ActiveEpisodes episodes={group.active_episodes} />
                   </DashboardCard>
                   <DashboardCard
                     title="Upcoming events"

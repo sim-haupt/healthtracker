@@ -28,11 +28,8 @@ export async function proxy(request: NextRequest) {
   });
   try {
     // Verify with Auth, not the untrusted session payload from cookies.
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-    if ((error || !user) && !isLogin) return redirectToLogin();
+    const { data, error } = await supabase.auth.getClaims();
+    if ((error || !data?.claims?.sub) && !isLogin) return redirectToLogin();
   } catch {
     if (!isLogin) return redirectToLogin();
   }
