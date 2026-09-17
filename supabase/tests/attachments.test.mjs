@@ -884,10 +884,12 @@ test("private attachments enforce database and Storage isolation and upload cons
       assert.deepEqual(changed, [
         { reminder_kind: "next_dose", due_date: "2027-04-10" },
       ]);
-      await db.query(
-        "insert into public.reminders(profile_id,source_event_id,title,due_date,recurrence) values($1,$2,'Annual check','2027-09-14','yearly')",
-        [profile, vaccinationId],
-      );
+      const customId = (
+        await db.query(
+          "insert into public.reminders(profile_id,source_event_id,title,due_date,recurrence) values($1,$2,'Annual check','2027-09-14','yearly') returning id",
+          [profile, vaccinationId],
+        )
+      ).rows[0].id;
       assert.equal(
         (
           await db.query(
@@ -896,6 +898,40 @@ test("private attachments enforce database and Storage isolation and upload cons
           )
         ).rows[0].n,
         2,
+      );
+      const synchronized = (
+        await db.query(
+          "select public.sync_event_reminders($1,$2) as reminders",
+          [
+            vaccinationId,
+            [
+              {
+                id: customId,
+                title: "Updated annual check",
+                due_date: "2027-10-14",
+                recurrence: "yearly",
+              },
+              {
+                title: "Follow-up",
+                due_date: "2027-11-14",
+                recurrence: "none",
+              },
+            ],
+          ],
+        )
+      ).rows[0].reminders;
+      assert.deepEqual(
+        synchronized.map((item) => item.title),
+        ["Updated annual check", "Follow-up"],
+      );
+      assert.equal(
+        (
+          await db.query(
+            "select jsonb_array_length(public.sync_event_reminders($1,'[]')) as n",
+            [vaccinationId],
+          )
+        ).rows[0].n,
+        0,
       );
     });
     await run(uid(2), async () => {

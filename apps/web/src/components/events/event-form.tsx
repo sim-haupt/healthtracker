@@ -8,7 +8,14 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { ArrowLeft, Bell, CalendarPlus, Plus, Save, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Bell,
+  CalendarPlus,
+  Plus,
+  Save,
+  Trash2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api";
 import {
@@ -176,9 +183,9 @@ export function EventForm({
   const type = draft.event_type as EventType;
   const availableTypeOptions = typeOptions.types.filter(
     (option) =>
-      ((!option.archived && isUserEventType(option)) ||
-        event?.event_type === option.key ||
-        (!event && initialType === "Vaccination" && option.key === "Vaccination")),
+      (!option.archived && isUserEventType(option)) ||
+      event?.event_type === option.key ||
+      (!event && initialType === "Vaccination" && option.key === "Vaccination"),
   );
   const medicalFields: DetailField[] = [
     "treatment",
@@ -316,47 +323,58 @@ export function EventForm({
         undefined,
         { method: event ? "PUT" : "POST", body: draftInput(draft, event) },
       );
-      const failed: string[] = [];
-      if (episodeId) {
-        try {
-          await apiFetch(
-            "/api/v1/episodes/" + episodeId + "/events/" + saved.id,
-            undefined,
-            { method: "POST" },
-          );
-        } catch {
-          failed.push("episode link");
-        }
-      }
-      if (pendingDocument) {
-        try {
-          if (pendingDocument.source === "new")
-            await uploadPendingDocument(saved.id, pendingDocument.document);
-          else await attachExistingDocument(saved.id, pendingDocument.document);
-        } catch {
-          failed.push(
+      const followUps: Array<{
+        label: string;
+        run: () => Promise<unknown>;
+      }> = [];
+      if (episodeId)
+        followUps.push({
+          label: "episode link",
+          run: () =>
+            apiFetch(
+              "/api/v1/episodes/" + episodeId + "/events/" + saved.id,
+              undefined,
+              { method: "POST" },
+            ),
+        });
+      if (pendingDocument)
+        followUps.push({
+          label:
             pendingDocument.source === "new"
               ? "document upload"
               : "document attachment",
-          );
-        }
-      }
-      try {
-        if (remindersLoading || reminderError) throw new Error("Reminders were not loaded.");
-        await apiFetch(`/api/v1/reminders/event/${saved.id}`, undefined, {
-          method: "PUT",
-          body: {
-            reminders: reminders.map(({ id, title, due_date, recurrence }) => ({
-              ...(id ? { id } : {}),
-              title,
-              due_date,
-              recurrence,
-            })),
+          run: () =>
+            pendingDocument.source === "new"
+              ? uploadPendingDocument(saved.id, pendingDocument.document)
+              : attachExistingDocument(saved.id, pendingDocument.document),
+        });
+      if (event || reminders.length)
+        followUps.push({
+          label: "reminder update",
+          run: () => {
+            if (remindersLoading || reminderError)
+              return Promise.reject(new Error("Reminders were not loaded."));
+            return apiFetch(`/api/v1/reminders/event/${saved.id}`, undefined, {
+              method: "PUT",
+              body: {
+                reminders: reminders.map(
+                  ({ id, title, due_date, recurrence }) => ({
+                    ...(id ? { id } : {}),
+                    title,
+                    due_date,
+                    recurrence,
+                  }),
+                ),
+              },
+            });
           },
         });
-      } catch {
-        failed.push("reminder update");
-      }
+      const followUpResults = await Promise.allSettled(
+        followUps.map((task) => task.run()),
+      );
+      const failed = followUpResults.flatMap((result, index) =>
+        result.status === "rejected" ? [followUps[index].label] : [],
+      );
       toast(
         failed.length
           ? "Event saved. " +
@@ -429,13 +447,13 @@ export function EventForm({
     );
   }
 
-
   function cleanWebsite(value: unknown) {
     if (typeof value !== "string") return null;
     const match = value.match(/\((https?:\/\/[^)]+)\)/i);
     let website = (match?.[1] ?? value).trim();
     website = website.replace(/^\[([^\]]+)\]\(([^)]+)\)$/u, "$2").trim();
-    if (website && !/^https?:\/\//i.test(website)) website = "https://" + website;
+    if (website && !/^https?:\/\//i.test(website))
+      website = "https://" + website;
     try {
       return ["http:", "https:"].includes(new URL(website).protocol)
         ? website
@@ -671,12 +689,10 @@ export function EventForm({
                   invalid={!!errors.event_type}
                   placeholder="Choose a type"
                   onChange={(value) => update("event_type", value)}
-                  options={availableTypeOptions
-                    .map((option) => ({
-                      value: option.key,
-                      label:
-                        option.name + (option.archived ? " (removed)" : ""),
-                    }))}
+                  options={availableTypeOptions.map((option) => ({
+                    value: option.key,
+                    label: option.name + (option.archived ? " (removed)" : ""),
+                  }))}
                 />
                 {feedback("event_type")}
               </div>
@@ -1043,7 +1059,9 @@ export function EventForm({
                         <span className="field-label">Dose</span>
                         <div
                           className="vaccination-dose-selector"
-                          aria-invalid={!!errors.dose_number || !!errors.dose_total}
+                          aria-invalid={
+                            !!errors.dose_number || !!errors.dose_total
+                          }
                         >
                           <div
                             className="vaccination-dose-group"
@@ -1057,7 +1075,9 @@ export function EventForm({
                                   type="button"
                                   key={number}
                                   className="dose-circle"
-                                  aria-pressed={draft.dose_total === String(number)}
+                                  aria-pressed={
+                                    draft.dose_total === String(number)
+                                  }
                                   onClick={() => {
                                     const next =
                                       draft.dose_total === String(number)
@@ -1205,7 +1225,17 @@ export function EventForm({
           )}
 
           <FormSection
-            number={type === "Vaccination" || type === "Examination / Test" || type === "Illness" || type === "Migraine" || type === "Injury" || type === "Symptom" || type === "Other" ? 3 : 4}
+            number={
+              type === "Vaccination" ||
+              type === "Examination / Test" ||
+              type === "Illness" ||
+              type === "Migraine" ||
+              type === "Injury" ||
+              type === "Symptom" ||
+              type === "Other"
+                ? 3
+                : 4
+            }
             title="Additional information"
             className="event-additional-section"
           >
@@ -1304,19 +1334,32 @@ export function EventForm({
                 </button>
               </div>
               {remindersLoading ? (
-                <p className="muted" role="status">Loading reminders…</p>
+                <p className="muted" role="status">
+                  Loading reminders…
+                </p>
               ) : (
                 reminders.map((reminder) => (
                   <div className="event-reminder-row" key={reminder.key}>
                     <div className="form-field">
-                      <label className="sr-only" htmlFor={`reminder-title-${reminder.key}`}>Reminder</label>
+                      <label
+                        className="sr-only"
+                        htmlFor={`reminder-title-${reminder.key}`}
+                      >
+                        Reminder
+                      </label>
                       <input
                         id={`reminder-title-${reminder.key}`}
                         value={reminder.title}
                         maxLength={300}
                         placeholder="Reminder"
                         onChange={(change) => {
-                          setReminders((items) => items.map((item) => item.key === reminder.key ? { ...item, title: change.target.value } : item));
+                          setReminders((items) =>
+                            items.map((item) =>
+                              item.key === reminder.key
+                                ? { ...item, title: change.target.value }
+                                : item,
+                            ),
+                          );
                           setDirty(true);
                         }}
                       />
@@ -1326,7 +1369,13 @@ export function EventForm({
                       value={reminder.due_date}
                       ariaLabel="Reminder date"
                       onChange={(value) => {
-                        setReminders((items) => items.map((item) => item.key === reminder.key ? { ...item, due_date: value } : item));
+                        setReminders((items) =>
+                          items.map((item) =>
+                            item.key === reminder.key
+                              ? { ...item, due_date: value }
+                              : item,
+                          ),
+                        );
                         setDirty(true);
                       }}
                     />
@@ -1335,7 +1384,17 @@ export function EventForm({
                       value={reminder.recurrence}
                       ariaLabel="Repeat reminder"
                       onChange={(value) => {
-                        setReminders((items) => items.map((item) => item.key === reminder.key ? { ...item, recurrence: value as EventReminderDraft["recurrence"] } : item));
+                        setReminders((items) =>
+                          items.map((item) =>
+                            item.key === reminder.key
+                              ? {
+                                  ...item,
+                                  recurrence:
+                                    value as EventReminderDraft["recurrence"],
+                                }
+                              : item,
+                          ),
+                        );
                         setDirty(true);
                       }}
                       options={[
@@ -1350,7 +1409,9 @@ export function EventForm({
                       aria-label="Remove reminder"
                       title="Remove reminder"
                       onClick={() => {
-                        setReminders((items) => items.filter((item) => item.key !== reminder.key));
+                        setReminders((items) =>
+                          items.filter((item) => item.key !== reminder.key),
+                        );
                         setDirty(true);
                       }}
                     >
@@ -1359,7 +1420,11 @@ export function EventForm({
                   </div>
                 ))
               )}
-              {reminderError && <p className="field-error" role="alert">{reminderError}</p>}
+              {reminderError && (
+                <p className="field-error" role="alert">
+                  {reminderError}
+                </p>
+              )}
             </div>
           </FormSection>
         </fieldset>

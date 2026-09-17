@@ -47,6 +47,31 @@ test("allowed account receives only its identifier", async () => {
   assert.equal(res.status, 200);
   assert.deepEqual(res.body, { user: { id: "owner" } });
 });
+test("parallel requests share the same recent membership check", async () => {
+  let checks = 0;
+  const cached = createApp({
+    frontendOrigin: "http://localhost:3000",
+    verifyToken: async () => ({ id: "owner" }),
+    dataForToken: () => ({
+      ...emptyEventData,
+      isApproved: async () => {
+        checks += 1;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return true;
+      },
+    }),
+  });
+  const responses = await Promise.all([
+    request(cached).get("/api/v1/me").set("Authorization", "Bearer one"),
+    request(cached).get("/api/v1/me").set("Authorization", "Bearer two"),
+    request(cached).get("/api/v1/me").set("Authorization", "Bearer three"),
+  ]);
+  assert.deepEqual(
+    responses.map((response) => response.status),
+    [200, 200, 200],
+  );
+  assert.equal(checks, 1);
+});
 test("CORS does not reflect an arbitrary origin", async () => {
   const res = await request(app)
     .get("/health")

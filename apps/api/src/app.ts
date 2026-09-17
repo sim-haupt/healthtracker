@@ -20,6 +20,24 @@ export type AppOptions = {
 };
 export function createApp(options: AppOptions) {
   const app = express();
+  const approvalCache = new Map<
+    string,
+    { expiresAt: number; result: Promise<boolean> }
+  >();
+  async function isApproved(userId: string, data: UserDataAccess) {
+    const now = Date.now();
+    const cached = approvalCache.get(userId);
+    if (cached && cached.expiresAt > now) return cached.result;
+    const result = data.isApproved(userId);
+    const entry = { expiresAt: now + 5_000, result };
+    approvalCache.set(userId, entry);
+    try {
+      return await result;
+    } catch (error) {
+      if (approvalCache.get(userId) === entry) approvalCache.delete(userId);
+      throw error;
+    }
+  }
   app.disable("x-powered-by");
   app.set("trust proxy", options.trustProxyHops ?? 0);
   app.use(helmet());
@@ -60,7 +78,7 @@ export function createApp(options: AppOptions) {
         return;
       }
       const data = options.dataForToken(match[1]);
-      if (!(await data.isApproved(user.id))) {
+      if (!(await isApproved(user.id, data))) {
         res.status(403).json({ error: "Access denied" });
         return;
       }
