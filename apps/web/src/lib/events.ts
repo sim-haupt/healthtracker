@@ -7,6 +7,7 @@ export const eventTypes = [
   "Injury",
   "Symptom",
   "Other",
+  "Migraine",
 ] as const;
 export type EventType = string;
 export type DetailField =
@@ -225,9 +226,17 @@ export function validateDraft(
   const errors: Record<string, string> = {};
   if (draft.test_type && draft.test_type.length > 300)
     errors.test_type = "Use 300 characters or fewer.";
-  if (draft.severity && draft.event_type === "Migraine" && !["1", "2", "3", "4", "5"].includes(draft.severity))
+  if (
+    draft.severity &&
+    draft.event_type === "Migraine" &&
+    !["1", "2", "3", "4", "5"].includes(draft.severity)
+  )
     errors.severity = "Choose a severity from 1 to 5.";
-  else if (draft.severity && draft.event_type !== "Migraine" && !["Mild", "Moderate", "Severe"].includes(draft.severity))
+  else if (
+    draft.severity &&
+    draft.event_type !== "Migraine" &&
+    !["Mild", "Moderate", "Severe"].includes(draft.severity)
+  )
     errors.severity = "Choose a severity.";
   if (draft.trigger && draft.trigger.length > 5000)
     errors.trigger = "Use 5,000 characters or fewer.";
@@ -237,7 +246,10 @@ export function validateDraft(
     errors.injury_type = "Use 300 characters or fewer.";
   if (draft.body_area && draft.body_area.length > 300)
     errors.body_area = "Use 300 characters or fewer.";
-  if (draft.frequency && !["Once", "Occasional", "Frequent", "Constant"].includes(draft.frequency))
+  if (
+    draft.frequency &&
+    !["Once", "Occasional", "Frequent", "Constant"].includes(draft.frequency)
+  )
     errors.frequency = "Choose a frequency.";
   if (draft.recovery && draft.recovery.length > 5000)
     errors.recovery = "Use 5,000 characters or fewer.";
@@ -266,18 +278,20 @@ export function validateDraft(
     errors.profile_id = "Choose a health profile.";
   if (!draft.event_type || draft.event_type.length > 100)
     errors.event_type = "Choose an event type.";
-  if (draft.title.trim().length > 300)
+  if (!draft.title.trim()) errors.title = "Enter a title.";
+  else if (draft.title.trim().length > 300)
     errors.title = "Use 300 characters or fewer.";
   const validDate = (value: string) =>
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(value) &&
     !Number.isNaN(new Date(value).getTime()) &&
     localDateTime(new Date(value).toISOString()) ===
       (value.length === 16 ? `${value}:00` : value);
-  if (!validDate(draft.event_date))
+  if (draft.event_date && !validDate(draft.event_date))
     errors.event_date = "Enter a valid start date and local time.";
   if (draft.end_date && !validDate(draft.end_date))
     errors.end_date = "Enter a valid end date and local time.";
   else if (
+    draft.event_date &&
     draft.end_date &&
     !errors.event_date &&
     new Date(draft.end_date) < new Date(draft.event_date)
@@ -298,6 +312,10 @@ export function draftInput(
     previous && value === localDateTime(previous)
       ? previous
       : new Date(value).toISOString();
+  const eventDate =
+    draft.event_date ||
+    draft.end_date ||
+    localDateTime(new Date().toISOString());
   return {
     ...draft,
     test_type: draft.test_type?.trim() || null,
@@ -318,8 +336,8 @@ export function draftInput(
     provider_id: draft.provider_id || null,
     category_id: draft.category_id || null,
     event_type: draft.event_type as EventType,
-    title: draft.title.trim() || "Untitled event",
-    event_date: dateValue(draft.event_date, original?.event_date),
+    title: draft.title.trim(),
+    event_date: dateValue(eventDate, original?.event_date),
     end_date: draft.end_date
       ? dateValue(draft.end_date, original?.end_date)
       : null,

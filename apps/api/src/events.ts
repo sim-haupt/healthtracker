@@ -9,6 +9,7 @@ export const eventTypes = [
   "Injury",
   "Symptom",
   "Other",
+  "Migraine",
 ] as const;
 const storedEventTypes = [...eventTypes, "Medication", "Vaccination"] as const;
 const shortText = z
@@ -34,7 +35,11 @@ export const eventInputSchema = z
     relief: longText,
     injury_type: shortText,
     body_area: shortText,
-    frequency: z.enum(["Once", "Occasional", "Frequent", "Constant"]).nullable().optional().default(null),
+    frequency: z
+      .enum(["Once", "Occasional", "Frequent", "Constant"])
+      .nullable()
+      .optional()
+      .default(null),
     recovery: longText,
     action: longText,
     disease: shortText,
@@ -115,16 +120,18 @@ export const eventInputSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
-    const allowed = value.event_type === "Migraine"
-      ? ["1", "2", "3", "4", "5"]
-      : ["Mild", "Moderate", "Severe"];
+    const allowed =
+      value.event_type === "Migraine"
+        ? ["1", "2", "3", "4", "5"]
+        : ["Mild", "Moderate", "Severe"];
     if (value.severity && !allowed.includes(value.severity))
       ctx.addIssue({
         code: "custom",
         path: ["severity"],
-        message: value.event_type === "Migraine"
-          ? "Choose a severity from 1 to 5."
-          : "Choose a severity.",
+        message:
+          value.event_type === "Migraine"
+            ? "Choose a severity from 1 to 5."
+            : "Choose a severity.",
       });
   })
   .refine(
@@ -293,9 +300,7 @@ export function eventRouter() {
     const parsed = z
       .object({
         filters: listSchema,
-        entry_type: z
-          .enum(["all", "event", "episode"])
-          .default("all"),
+        entry_type: z.enum(["all", "event", "episode"]).default("all"),
       })
       .strict()
       .safeParse(req.body);

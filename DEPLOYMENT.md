@@ -67,26 +67,30 @@ Create the Vercel project before finalizing Railway so you know the exact fronte
    NEXT_PUBLIC_API_URL=https://temporary.invalid
    ```
 
+   Set all three to Vercel's **Config** type before saving. They are intentionally available to the browser. If one was already saved as **Secret**, delete it and recreate it as Config because Vercel does not allow a saved write-only secret to be converted. Do not remove the `NEXT_PUBLIC_` prefix and do not use Supabase secret/service-role keys here.
+
 6. Note the assigned production domain, for example `https://healthtracker.vercel.app`. The initial deployment can be completed with the temporary API URL; update it after Railway has a public domain.
 
 ## 4. Deploy the API to Railway
 
 1. In Railway, create a project and add a service from the same Git repository.
-2. Keep the service Root Directory at the repository root. Railway will use the committed `railway.json`, which builds and starts only `@healthtracker/api` and checks `/health`.
-3. Add these service variables:
+2. If Railway automatically creates separate `web` and `api` services from the npm workspaces, delete the Railway `web` service; the Next.js frontend belongs on Vercel. Keep only the API service.
+3. Keep the API service Root Directory at the repository root. Railway will use the committed `railway.json`, which builds and starts only `@healthtracker/api` and checks `/health`.
+4. Add these service variables:
 
    ```text
    NODE_ENV=production
+   PORT=4000
    SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
    SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
    FRONTEND_ORIGIN=https://YOUR_EXACT_VERCEL_PRODUCTION_DOMAIN
    TRUST_PROXY_HOPS=1
    ```
 
-   Do not set `PORT`; Railway supplies it. `FRONTEND_ORIGIN` must contain only one exact HTTPS origin with no path and no trailing slash.
+   `FRONTEND_ORIGIN` must contain only one exact HTTPS origin with no path and no trailing slash. Railway can normally inject and detect `PORT`; this guide fixes it at `4000` so the health check and a manually selected domain target always use the same port.
 
-4. Deploy the service and generate a public Railway domain in **Settings → Networking**.
-5. Verify the API without authentication:
+5. Deploy the service and generate a public Railway domain in **Settings → Networking**. If Railway asks for a target port, enter `4000`.
+6. Verify the API without authentication:
 
    ```sh
    curl https://YOUR_RAILWAY_DOMAIN/health
