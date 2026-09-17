@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Check, Plus, X } from "lucide-react";
+import { Check, Plus, Search, X } from "lucide-react";
 import type { Label } from "@/lib/tracker";
 import { useTracker } from "./context";
 
@@ -32,6 +32,10 @@ function LabelPicker({
       (b.usage_count ?? 0) - (a.usage_count ?? 0) ||
       a.name.localeCompare(b.name),
   );
+  const commonIds = new Set(sorted.slice(0, 10).map((item) => item.id));
+  const visiblePills = sorted.filter(
+    (item) => commonIds.has(item.id) || selected.includes(item.id),
+  );
   const matches = sorted.filter((item) =>
     item.name.toLocaleLowerCase().includes(normalized),
   );
@@ -46,44 +50,41 @@ function LabelPicker({
   return (
     <div className="form-field label-picker">
       <label htmlFor={id}>Tags</label>
-      {selected.length > 0 && (
-        <div className="label-pills" aria-label="Selected tags">
-          {selected.map((itemId) => (
-            <button
-              key={itemId}
-              type="button"
-              className="label-pill selected"
-              disabled={disabled}
-              aria-label={`Remove ${items.find((item) => item.id === itemId)?.name ?? "tag"}`}
-              onClick={() => onSelect(itemId)}
-            >
-              {items.find((item) => item.id === itemId)?.name ?? "Selected"}
-              <X size={13} aria-hidden="true" />
-            </button>
-          ))}
-        </div>
-      )}
-      <input
-        id={id}
-        value={query}
-        maxLength={100}
-        autoComplete="off"
-        placeholder="Search or create…"
-        disabled={disabled}
-        aria-invalid={!!error}
-        aria-describedby={error ? `${id}-error` : undefined}
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") setQuery("");
-          if (e.key === "Enter") {
-            e.preventDefault();
-            if (!term || disabled) return;
-            if (exact) {
-              if (!full || selected.includes(exact.id)) choose(exact.id);
-            } else if (!full) void create();
-          }
-        }}
-      />
+      <div className="filter-bar-search form-search-field">
+        <Search size={16} aria-hidden="true" />
+        <input
+          id={id}
+          value={query}
+          maxLength={100}
+          autoComplete="off"
+          placeholder="Search or create…"
+          disabled={disabled}
+          aria-invalid={!!error}
+          aria-describedby={error ? `${id}-error` : undefined}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setQuery("");
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (!term || disabled) return;
+              if (exact) {
+                if (!full || selected.includes(exact.id)) choose(exact.id);
+              } else if (!full) void create();
+            }
+          }}
+        />
+        {query && (
+          <button
+            type="button"
+            className="search-clear-button"
+            aria-label="Clear tag search"
+            disabled={disabled}
+            onClick={() => setQuery("")}
+          >
+            <X size={14} aria-hidden="true" />
+          </button>
+        )}
+      </div>
       {term && (
         <div className="label-search-results" aria-label="Tag search results">
           {matches.map((item) => (
@@ -114,7 +115,7 @@ function LabelPicker({
       {items.length > 0 && (
         <div className="common-labels">
           <div className="label-pills">
-            {sorted.slice(0, 10).map((item) => (
+            {visiblePills.map((item) => (
               <button
                 type="button"
                 key={item.id}

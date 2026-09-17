@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { FilterX, Search, SlidersHorizontal } from "lucide-react";
+import { FilterX, Search, SlidersHorizontal, X } from "lucide-react";
 import { useProfiles } from "../app-shell";
 import { ProfileAvatar } from "./profile-avatar";
 
@@ -108,6 +108,16 @@ export function FilterBar({
               placeholder={search.placeholder}
               onChange={(event) => search.onChange(event.target.value)}
             />
+            {search.value && (
+              <button
+                type="button"
+                className="search-clear-button"
+                aria-label={`Clear ${search.label}`}
+                onClick={() => search.onChange("")}
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            )}
           </div>
         )}
       </div>

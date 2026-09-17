@@ -8,7 +8,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { ArrowLeft, Bell, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, Bell, CalendarPlus, Plus, Save, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api";
 import {
@@ -23,10 +23,12 @@ import {
   type EventDraft,
 } from "@/lib/events";
 import { formatDate } from "@/lib/date-format";
+import { parseDay } from "@/lib/tracker";
 import { useProfiles } from "../app-shell";
-import { useEventTypes } from "../event-types";
+import { isUserEventType, useEventTypes } from "../event-types";
 import { useProviders } from "../providers-context";
 import { ProviderEditor } from "../providers";
+import type { Provider } from "@/lib/providers";
 import { EventLabelEditor } from "../tracker/event-label-editor";
 import { useToast, ConfirmDialog } from "../ui/feedback";
 import { CustomSelect, DatePicker } from "../ui/pickers";
@@ -55,6 +57,31 @@ type EventReminderDraft = {
   due_date: string;
   recurrence: "none" | "monthly" | "yearly";
 };
+
+const examinationTypeOptions = [
+  "Blood test",
+  "MRI",
+  "X-ray",
+  "Ultrasound",
+  "Physical examination",
+];
+
+function googleCalendarDate(value: string) {
+  return new Date(value).toISOString().replace(/[-:]/g, "").replace(".000", "");
+}
+
+function googleCalendarUrl(event: HealthEvent) {
+  const start = new Date(event.event_date);
+  const end = event.end_date
+    ? new Date(event.end_date)
+    : new Date(start.getTime() + 60 * 60 * 1000);
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: event.title || "Health event",
+    dates: `${googleCalendarDate(start.toISOString())}/${googleCalendarDate(end.toISOString())}`,
+  });
+  return "https://calendar.google.com/calendar/render?" + params.toString();
+}
 
 function FormSection({
   number,
@@ -119,6 +146,11 @@ export function EventForm({
   const typeOptions = useEventTypes();
   const [discard, setDiscard] = useState(false);
   const [addingProvider, setAddingProvider] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importError, setImportError] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [addingTestType, setAddingTestType] = useState(false);
   const [draft, setDraft] = useState<EventDraft>(() => ({
     ...eventDraft(event, activeProfile?.id ?? profiles[0]?.id, initialDate),
     ...(!event && initialType ? { event_type: initialType } : {}),
@@ -139,7 +171,15 @@ export function EventForm({
   const [remindersLoading, setRemindersLoading] = useState(!!event);
   const [reminderError, setReminderError] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
+  const importDialog = useRef<HTMLDialogElement>(null);
+  const submitMode = useRef<"save" | "calendar">("save");
   const type = draft.event_type as EventType;
+  const availableTypeOptions = typeOptions.types.filter(
+    (option) =>
+      ((!option.archived && isUserEventType(option)) ||
+        event?.event_type === option.key ||
+        (!event && initialType === "Vaccination" && option.key === "Vaccination")),
+  );
   const medicalFields: DetailField[] = [
     "treatment",
     "diagnosis",
@@ -162,6 +202,11 @@ export function EventForm({
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+
+  useEffect(() => {
+    if (importOpen) importDialog.current?.showModal();
+    else importDialog.current?.close();
+  }, [importOpen]);
 
   useEffect(() => {
     if (!draft.profile_id) return;
@@ -241,12 +286,16 @@ export function EventForm({
   async function save(submission: FormEvent) {
     submission.preventDefault();
     if (busy || labelBusy) return;
+    const addToCalendar = submitMode.current === "calendar";
+    submitMode.current = "save";
+    const calendarWindow = addToCalendar ? window.open("", "_blank") : null;
+    if (calendarWindow) calendarWindow.opener = null;
     const issues = validateDraft(
       draft,
       profiles.map((profile) => profile.id),
     );
     if (
-      !typeOptions.types.some(
+      !availableTypeOptions.some(
         (option) =>
           option.key === draft.event_type &&
           (!option.archived || event?.event_type === option.key),
@@ -255,6 +304,7 @@ export function EventForm({
       issues.event_type = "Choose an available event type.";
     setError("");
     if (Object.keys(issues).length) {
+      calendarWindow?.close();
       highlight(issues);
       setError("Please check the highlighted fields.");
       return;
@@ -314,9 +364,15 @@ export function EventForm({
               " failed; retry from the saved event."
           : "Event saved.",
       );
+      if (addToCalendar) {
+        const url = googleCalendarUrl(saved);
+        if (calendarWindow) calendarWindow.location.href = url;
+        else window.open(url, "_blank", "noopener,noreferrer");
+      }
       setDirty(false);
       router.push("/events/" + saved.id);
     } catch (cause) {
+      calendarWindow?.close();
       if (cause instanceof ApiError)
         highlight(
           Object.fromEntries(
@@ -357,10 +413,10 @@ export function EventForm({
     "aria-describedby": errors[name] ? name + "-error" : undefined,
   });
 
-  function longField(field: DetailField) {
+  function longField(field: DetailField, label = fieldLabel(type, field)) {
     return (
       <div className="form-field" key={field}>
-        <label htmlFor={field}>{fieldLabel(type, field)}</label>
+        <label htmlFor={field}>{label}</label>
         <RichTextEditor
           id={field}
           value={String(draft[field] ?? "")}
@@ -372,6 +428,168 @@ export function EventForm({
       </div>
     );
   }
+
+
+  function cleanWebsite(value: unknown) {
+    if (typeof value !== "string") return null;
+    const match = value.match(/\((https?:\/\/[^)]+)\)/i);
+    let website = (match?.[1] ?? value).trim();
+    website = website.replace(/^\[([^\]]+)\]\(([^)]+)\)$/u, "$2").trim();
+    if (website && !/^https?:\/\//i.test(website)) website = "https://" + website;
+    try {
+      return ["http:", "https:"].includes(new URL(website).protocol)
+        ? website
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function textValue(value: unknown) {
+    return typeof value === "string" ? value.trim() : "";
+  }
+
+  function importedDate(value: unknown) {
+    const raw = textValue(value);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw) || !parseDay(raw)) return "";
+    return `${raw}T09:00:00`;
+  }
+
+  async function importJson() {
+    if (importing) return;
+    setImporting(true);
+    setImportError("");
+    try {
+      const parsed = JSON.parse(importText) as Record<string, unknown>;
+      const providerName = textValue(parsed.doctor_or_practice_name);
+      const address = textValue(parsed.address);
+      const website = cleanWebsite(parsed.website);
+      let providerId = "";
+      if (providerName) {
+        const existing = doctors.providers.find(
+          (provider) =>
+            provider.name.trim().toLowerCase() === providerName.toLowerCase(),
+        );
+        if (existing) providerId = existing.id;
+        else {
+          const { provider } = await apiFetch<{ provider: Provider }>(
+            "/api/v1/providers",
+            undefined,
+            {
+              method: "POST",
+              body: {
+                name: providerName,
+                specialty: null,
+                phone: null,
+                email: null,
+                address: address || null,
+                website,
+                rating: null,
+                notes: null,
+              },
+            },
+          );
+          providerId = provider.id;
+          doctors.reload();
+        }
+      }
+      const diagnosis = textValue(parsed.diagnosis);
+      const treatmentSummary = textValue(parsed.treatment_summary);
+      const examinationResult = textValue(parsed.examination_result);
+      const reason = textValue(parsed.reason_for_visit);
+      const date = importedDate(parsed.date_of_treatment);
+      setDraft((current) => ({
+        ...current,
+        event_type: "Doctor Visit",
+        title:
+          current.title.trim() ||
+          diagnosis ||
+          treatmentSummary ||
+          (providerName ? `Visit · ${providerName}` : "Imported event"),
+        event_date: date || current.event_date,
+        provider_id: providerId || current.provider_id,
+        doctor: providerName || current.doctor,
+        location: address || current.location,
+        description: reason || current.description,
+        treatment:
+          [treatmentSummary, examinationResult].filter(Boolean).join("\n\n") ||
+          current.treatment,
+        diagnosis: diagnosis || current.diagnosis,
+      }));
+      setDirty(true);
+      setImportText("");
+      setImportOpen(false);
+    } catch (cause) {
+      setImportError(
+        cause instanceof SyntaxError
+          ? "Paste valid JSON."
+          : cause instanceof Error
+            ? cause.message
+            : "Unable to import this JSON.",
+      );
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function providerField(label = "Medical provider") {
+    return (
+      <div className="form-field">
+        <label htmlFor="provider_id">{label}</label>
+        <CustomSelect
+          id="provider_id"
+          value={draft.provider_id ?? ""}
+          disabled={doctors.loading}
+          invalid={!!errors.provider_id}
+          onChange={(id) => {
+            update("provider_id", id);
+            if (id)
+              update(
+                "doctor",
+                doctors.providers.find((provider) => provider.id === id)
+                  ?.name ?? "",
+              );
+          }}
+          options={[
+            { value: "", label: "Select medical provider" },
+            ...(draft.provider_id &&
+            !doctors.providers.some(
+              (provider) => provider.id === draft.provider_id,
+            )
+              ? [
+                  {
+                    value: draft.provider_id,
+                    label: "Previously selected provider",
+                  },
+                ]
+              : []),
+            ...doctors.providers.map((provider) => ({
+              value: provider.id,
+              label:
+                provider.name +
+                (provider.specialty ? " · " + provider.specialty : ""),
+            })),
+          ]}
+        />
+        <div className="provider-add-row">
+          <button
+            type="button"
+            className="text-link"
+            onClick={() => setAddingProvider(true)}
+          >
+            <Plus size={14} aria-hidden="true" /> Add provider
+          </button>
+        </div>
+        {feedback("provider_id")}
+      </div>
+    );
+  }
+
+  const examinationTypeIsPreset = examinationTypeOptions.includes(
+    draft.test_type,
+  );
+  const showCustomTestType =
+    addingTestType || (!!draft.test_type.trim() && !examinationTypeIsPreset);
 
   const detailsTitle =
     type === "Doctor Visit"
@@ -391,6 +609,19 @@ export function EventForm({
         <div>
           <h1>{event ? "Edit event" : "Add event"}</h1>
         </div>
+      </div>
+      <div className="event-form-toolbar">
+        <button
+          type="button"
+          className="button secondary-button"
+          disabled={busy || importing}
+          onClick={() => {
+            setImportError("");
+            setImportOpen(true);
+          }}
+        >
+          Import
+        </button>
       </div>
       <form ref={formRef} onSubmit={save} noValidate className="event-form">
         <fieldset disabled={busy}>
@@ -440,11 +671,7 @@ export function EventForm({
                   invalid={!!errors.event_type}
                   placeholder="Choose a type"
                   onChange={(value) => update("event_type", value)}
-                  options={typeOptions.types
-                    .filter(
-                      (option) =>
-                        !option.archived || event?.event_type === option.key,
-                    )
+                  options={availableTypeOptions
                     .map((option) => ({
                       value: option.key,
                       label:
@@ -513,226 +740,472 @@ export function EventForm({
             </div>
           </FormSection>
 
-          <FormSection number={2} title={detailsTitle}>
-            <div
-              className={`event-section-grid ${type === "Vaccination" ? "vaccination-details-grid" : ""}`}
-            >
-              <div className="form-field">
-                <label htmlFor="provider_id">Medical provider</label>
-                <CustomSelect
-                  id="provider_id"
-                  value={draft.provider_id ?? ""}
-                  disabled={doctors.loading}
-                  invalid={!!errors.provider_id}
-                  onChange={(id) => {
-                    update("provider_id", id);
-                    if (id)
-                      update(
-                        "doctor",
-                        doctors.providers.find((provider) => provider.id === id)
-                          ?.name ?? "",
-                      );
-                  }}
-                  options={[
-                    { value: "", label: "No medical provider" },
-                    ...(draft.provider_id &&
-                    !doctors.providers.some(
-                      (provider) => provider.id === draft.provider_id,
-                    )
-                      ? [
-                          {
-                            value: draft.provider_id,
-                            label: "Previously selected provider",
-                          },
-                        ]
-                      : []),
-                    ...doctors.providers.map((provider) => ({
-                      value: provider.id,
-                      label:
-                        provider.name +
-                        (provider.specialty ? " · " + provider.specialty : ""),
-                    })),
-                  ]}
-                />
-                <div className="provider-add-row">
+          {type === "Other" ? (
+            <FormSection number={2} title="Details">
+              <div className="event-section-grid event-medical-grid">
+                {longField("description", "Description")}
+                <div className="form-field">
+                  <label htmlFor="action">Action</label>
+                  <RichTextEditor
+                    id="action"
+                    value={draft.action ?? ""}
+                    invalid={!!errors.action}
+                    describedBy={errors.action ? "action-error" : undefined}
+                    onChange={(value) => update("action", value)}
+                  />
+                  {feedback("action")}
+                </div>
+              </div>
+            </FormSection>
+          ) : type === "Symptom" ? (
+            <FormSection number={2} title="Symptom details">
+              <div className="event-section-grid event-medical-grid">
+                {longField("symptoms", "Symptom")}
+                <div className="form-field">
+                  <label htmlFor="body_area">Body area</label>
+                  <input
+                    {...fieldProps("body_area")}
+                    maxLength={300}
+                    onChange={(change) =>
+                      update("body_area", change.target.value)
+                    }
+                  />
+                  {feedback("body_area")}
+                </div>
+                <div className="form-field">
+                  <label htmlFor="severity">Severity</label>
+                  <CustomSelect
+                    id="severity"
+                    value={draft.severity ?? ""}
+                    placeholder="Select severity"
+                    invalid={!!errors.severity}
+                    onChange={(value) => update("severity", value)}
+                    options={[
+                      { value: "", label: "Select severity" },
+                      { value: "Mild", label: "Mild" },
+                      { value: "Moderate", label: "Moderate" },
+                      { value: "Severe", label: "Severe" },
+                    ]}
+                  />
+                  {feedback("severity")}
+                </div>
+                <div className="form-field">
+                  <label htmlFor="frequency">Frequency</label>
+                  <CustomSelect
+                    id="frequency"
+                    value={draft.frequency ?? ""}
+                    placeholder="Select frequency"
+                    invalid={!!errors.frequency}
+                    onChange={(value) => update("frequency", value)}
+                    options={[
+                      { value: "", label: "Select frequency" },
+                      { value: "Once", label: "Once" },
+                      { value: "Occasional", label: "Occasional" },
+                      { value: "Frequent", label: "Frequent" },
+                      { value: "Constant", label: "Constant" },
+                    ]}
+                  />
+                  {feedback("frequency")}
+                </div>
+                <div className="form-field">
+                  <label htmlFor="trigger">Possible trigger</label>
+                  <RichTextEditor
+                    id="trigger"
+                    value={draft.trigger ?? ""}
+                    invalid={!!errors.trigger}
+                    describedBy={errors.trigger ? "trigger-error" : undefined}
+                    onChange={(value) => update("trigger", value)}
+                  />
+                  {feedback("trigger")}
+                </div>
+              </div>
+            </FormSection>
+          ) : type === "Injury" ? (
+            <FormSection number={2} title="Injury details">
+              <div className="event-section-grid event-medical-grid">
+                <div className="form-field">
+                  <label htmlFor="injury_type">Injury type</label>
+                  <input
+                    {...fieldProps("injury_type")}
+                    maxLength={300}
+                    onChange={(change) =>
+                      update("injury_type", change.target.value)
+                    }
+                  />
+                  {feedback("injury_type")}
+                </div>
+                <div className="form-field">
+                  <label htmlFor="body_area">Body area</label>
+                  <input
+                    {...fieldProps("body_area")}
+                    maxLength={300}
+                    onChange={(change) =>
+                      update("body_area", change.target.value)
+                    }
+                  />
+                  {feedback("body_area")}
+                </div>
+                {longField("description", "Cause / how it happened")}
+                <div className="form-field">
+                  <label htmlFor="severity">Severity</label>
+                  <CustomSelect
+                    id="severity"
+                    value={draft.severity ?? ""}
+                    placeholder="Select severity"
+                    invalid={!!errors.severity}
+                    onChange={(value) => update("severity", value)}
+                    options={[
+                      { value: "", label: "Select severity" },
+                      { value: "Mild", label: "Mild" },
+                      { value: "Moderate", label: "Moderate" },
+                      { value: "Severe", label: "Severe" },
+                    ]}
+                  />
+                  {feedback("severity")}
+                </div>
+                {longField("treatment", "Treatment")}
+                <div className="form-field">
+                  <label htmlFor="recovery">Recovery</label>
+                  <RichTextEditor
+                    id="recovery"
+                    value={draft.recovery ?? ""}
+                    invalid={!!errors.recovery}
+                    describedBy={errors.recovery ? "recovery-error" : undefined}
+                    onChange={(value) => update("recovery", value)}
+                  />
+                  {feedback("recovery")}
+                </div>
+              </div>
+            </FormSection>
+          ) : type === "Migraine" ? (
+            <FormSection number={2} title="Migraine details">
+              <div className="event-section-grid event-medical-grid">
+                <div className="form-field migraine-severity-field">
+                  <span className="field-label">Severity</span>
+                  <div
+                    className="vaccination-dose-selector migraine-severity-selector"
+                    role="group"
+                    aria-label="Migraine severity"
+                    aria-invalid={!!errors.severity}
+                  >
+                    <div className="vaccination-dose-group">
+                      <div>
+                        {[1, 2, 3, 4, 5].map((number) => (
+                          <button
+                            type="button"
+                            key={number}
+                            className="dose-circle"
+                            aria-pressed={draft.severity === String(number)}
+                            onClick={() =>
+                              update(
+                                "severity",
+                                draft.severity === String(number)
+                                  ? ""
+                                  : String(number),
+                              )
+                            }
+                          >
+                            {number}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  {feedback("severity")}
+                </div>
+                {longField("symptoms", "Other Symptoms")}
+                <div className="form-field">
+                  <label htmlFor="trigger">Possible trigger</label>
+                  <RichTextEditor
+                    id="trigger"
+                    value={draft.trigger ?? ""}
+                    invalid={!!errors.trigger}
+                    describedBy={errors.trigger ? "trigger-error" : undefined}
+                    onChange={(value) => update("trigger", value)}
+                  />
+                  {feedback("trigger")}
+                </div>
+                {longField("treatment", "Medication / treatment")}
+                <div className="form-field">
+                  <label htmlFor="relief">Effectiveness / relief</label>
+                  <RichTextEditor
+                    id="relief"
+                    value={draft.relief ?? ""}
+                    invalid={!!errors.relief}
+                    describedBy={errors.relief ? "relief-error" : undefined}
+                    onChange={(value) => update("relief", value)}
+                  />
+                  {feedback("relief")}
+                </div>
+              </div>
+            </FormSection>
+          ) : type === "Illness" ? (
+            <FormSection number={2} title="Illness details">
+              <div className="event-section-grid event-medical-grid">
+                {longField("diagnosis", "Illness / condition")}
+                <div className="form-field">
+                  <label htmlFor="severity">Severity</label>
+                  <CustomSelect
+                    id="severity"
+                    value={draft.severity ?? ""}
+                    placeholder="Select severity"
+                    invalid={!!errors.severity}
+                    onChange={(value) => update("severity", value)}
+                    options={[
+                      { value: "", label: "Select severity" },
+                      { value: "Mild", label: "Mild" },
+                      { value: "Moderate", label: "Moderate" },
+                      { value: "Severe", label: "Severe" },
+                    ]}
+                  />
+                  {feedback("severity")}
+                </div>
+                {longField("symptoms", "Symptoms")}
+                {longField("treatment", "Medication / treatment")}
+              </div>
+            </FormSection>
+          ) : type === "Examination / Test" ? (
+            <FormSection number={2} title="Test details">
+              <div className="event-section-grid event-test-details-grid event-medical-grid">
+                <div className="form-field event-test-type-field">
+                  <label htmlFor="test_type">Test / examination type</label>
+                  <CustomSelect
+                    id="test_type"
+                    value={examinationTypeIsPreset ? draft.test_type : ""}
+                    placeholder="Choose a test type"
+                    invalid={!!errors.test_type}
+                    onChange={(value) => {
+                      setAddingTestType(false);
+                      update("test_type", value);
+                    }}
+                    options={[
+                      { value: "", label: "Select test type" },
+                      ...examinationTypeOptions.map((option) => ({
+                        value: option,
+                        label: option,
+                      })),
+                    ]}
+                  />
+                  <div className="provider-add-row">
+                    <button
+                      type="button"
+                      className="text-link"
+                      onClick={() => {
+                        setAddingTestType(true);
+                        if (examinationTypeIsPreset) update("test_type", "");
+                      }}
+                    >
+                      <Plus size={14} aria-hidden="true" /> Add test type
+                    </button>
+                  </div>
+                  {showCustomTestType && (
+                    <input
+                      {...fieldProps("test_type")}
+                      className="event-custom-test-type"
+                      maxLength={300}
+                      placeholder="Enter test type"
+                      onChange={(change) =>
+                        update("test_type", change.target.value)
+                      }
+                    />
+                  )}
+                  {feedback("test_type")}
+                </div>
+                {providerField("Medical provider / facility")}
+                {longField("description", "Reason for test")}
+                {longField("diagnosis", "Results / findings")}
+                {longField("treatment", "Follow-up / next steps")}
+              </div>
+              {doctors.error && (
+                <p role="alert" className="field-error">
+                  {doctors.error}{" "}
                   <button
                     type="button"
                     className="text-link"
-                    onClick={() => setAddingProvider(true)}
+                    onClick={doctors.reload}
                   >
-                    <Plus size={14} aria-hidden="true" /> Add provider
+                    Retry
                   </button>
-                </div>
-                {feedback("provider_id")}
-              </div>
-              {longField("description")}
-              {type === "Vaccination" && (
-                <>
-                  <div className="form-field vaccination-dose-field">
-                    <span className="field-label">Dose</span>
-                    <div
-                      className="vaccination-dose-selector"
-                      aria-invalid={!!errors.dose_number || !!errors.dose_total}
-                    >
-                      <div
-                        className="vaccination-dose-group"
-                        role="group"
-                        aria-label="Total doses"
-                      >
-                        <span>Total</span>
-                        <div>
-                          {[1, 2, 3].map((number) => (
-                            <button
-                              type="button"
-                              key={number}
-                              className="dose-circle"
-                              aria-pressed={draft.dose_total === String(number)}
-                              onClick={() => {
-                                const next =
-                                  draft.dose_total === String(number)
-                                    ? ""
-                                    : String(number);
-                                update("dose_total", next);
-                                if (!next) update("dose_number", "");
-                                else if (number === 1)
-                                  update("dose_number", "1");
-                                else if (
-                                  draft.dose_number &&
-                                  Number(draft.dose_number) > number
-                                )
-                                  update("dose_number", "");
-                              }}
-                            >
-                              {number}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      {draft.dose_total && (
-                        <>
-                          <span className="dose-selector-divider" />
+                </p>
+              )}
+            </FormSection>
+          ) : (
+            <>
+              <FormSection number={2} title={detailsTitle}>
+                <div
+                  className={`event-section-grid ${type === "Vaccination" ? "vaccination-details-grid" : ""}`}
+                >
+                  {providerField()}
+                  {longField("description")}
+                  {type === "Vaccination" && (
+                    <>
+                      <div className="form-field vaccination-dose-field">
+                        <span className="field-label">Dose</span>
+                        <div
+                          className="vaccination-dose-selector"
+                          aria-invalid={!!errors.dose_number || !!errors.dose_total}
+                        >
                           <div
                             className="vaccination-dose-group"
                             role="group"
-                            aria-label="Administered dose"
+                            aria-label="Total doses"
                           >
-                            <span>Dose</span>
+                            <span>Total</span>
                             <div>
-                              {Array.from(
-                                { length: Number(draft.dose_total) },
-                                (_, index) => index + 1,
-                              ).map((number) => (
+                              {[1, 2, 3].map((number) => (
                                 <button
                                   type="button"
                                   key={number}
                                   className="dose-circle"
-                                  aria-pressed={
-                                    draft.dose_number === String(number)
-                                  }
-                                  onClick={() =>
-                                    update(
-                                      "dose_number",
-                                      draft.dose_total !== "1" &&
-                                        draft.dose_number === String(number)
+                                  aria-pressed={draft.dose_total === String(number)}
+                                  onClick={() => {
+                                    const next =
+                                      draft.dose_total === String(number)
                                         ? ""
-                                        : String(number),
+                                        : String(number);
+                                    update("dose_total", next);
+                                    if (!next) update("dose_number", "");
+                                    else if (number === 1)
+                                      update("dose_number", "1");
+                                    else if (
+                                      draft.dose_number &&
+                                      Number(draft.dose_number) > number
                                     )
-                                  }
+                                      update("dose_number", "");
+                                  }}
                                 >
                                   {number}
                                 </button>
                               ))}
                             </div>
                           </div>
-                        </>
-                      )}
-                    </div>
-                    {feedback("dose_number") || feedback("dose_total")}
-                  </div>
-                  <div className="form-field vaccination-name-field">
-                    <label htmlFor="title">Vaccine name</label>
-                    <input
-                      {...fieldProps("title")}
-                      maxLength={300}
-                      onChange={(change) =>
-                        update("title", change.target.value)
-                      }
-                    />
-                    {feedback("title")}
-                  </div>
-                  <div className="form-field vaccination-next-dose-field">
-                    <label htmlFor="next_dose_date">
-                      Next recommended dose
-                    </label>
-                    <DatePicker
-                      id="next_dose_date"
-                      optional
-                      value={draft.next_dose_date ?? ""}
-                      invalid={!!errors.next_dose_date}
-                      placeholder="Add recommended dose date"
-                      onChange={(value) => update("next_dose_date", value)}
-                    />
-                    {feedback("next_dose_date")}
-                  </div>
-                  <div className="vaccination-renewal-fields">
-                    <div className="form-field">
-                      <label htmlFor="needs_renewal">
-                        Needs to be renewed?
-                      </label>
-                      <CustomSelect
-                        id="needs_renewal"
-                        value={draft.needs_renewal ? "yes" : "no"}
-                        onChange={(value) => {
-                          update("needs_renewal", value === "yes");
-                          if (value !== "yes") update("renewal_date", "");
-                        }}
-                        options={[
-                          { value: "no", label: "No" },
-                          { value: "yes", label: "Yes" },
-                        ]}
-                      />
-                    </div>
-                    <div className="form-field">
-                      <label htmlFor="renewal_date">Renewal date</label>
-                      <DatePicker
-                        id="renewal_date"
-                        optional
-                        disabled={!draft.needs_renewal}
-                        value={draft.renewal_date ?? ""}
-                        invalid={!!errors.renewal_date}
-                        placeholder="Add renewal date"
-                        onChange={(value) => update("renewal_date", value)}
-                      />
-                      {feedback("renewal_date")}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-            {doctors.error && (
-              <p role="alert" className="field-error">
-                {doctors.error}{" "}
-                <button
-                  type="button"
-                  className="text-link"
-                  onClick={doctors.reload}
-                >
-                  Retry
-                </button>
-              </p>
-            )}
-          </FormSection>
+                          {draft.dose_total && (
+                            <>
+                              <span className="dose-selector-divider" />
+                              <div
+                                className="vaccination-dose-group"
+                                role="group"
+                                aria-label="Administered dose"
+                              >
+                                <span>Dose</span>
+                                <div>
+                                  {Array.from(
+                                    { length: Number(draft.dose_total) },
+                                    (_, index) => index + 1,
+                                  ).map((number) => (
+                                    <button
+                                      type="button"
+                                      key={number}
+                                      className="dose-circle"
+                                      aria-pressed={
+                                        draft.dose_number === String(number)
+                                      }
+                                      onClick={() =>
+                                        update(
+                                          "dose_number",
+                                          draft.dose_total !== "1" &&
+                                            draft.dose_number === String(number)
+                                            ? ""
+                                            : String(number),
+                                        )
+                                      }
+                                    >
+                                      {number}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        {feedback("dose_number") || feedback("dose_total")}
+                      </div>
+                      <div className="form-field vaccination-name-field">
+                        <label htmlFor="title">Vaccine name</label>
+                        <input
+                          {...fieldProps("title")}
+                          maxLength={300}
+                          onChange={(change) =>
+                            update("title", change.target.value)
+                          }
+                        />
+                        {feedback("title")}
+                      </div>
+                      <div className="form-field vaccination-next-dose-field">
+                        <label htmlFor="next_dose_date">
+                          Next recommended dose
+                        </label>
+                        <DatePicker
+                          id="next_dose_date"
+                          optional
+                          value={draft.next_dose_date ?? ""}
+                          invalid={!!errors.next_dose_date}
+                          placeholder="Add recommended dose date"
+                          onChange={(value) => update("next_dose_date", value)}
+                        />
+                        {feedback("next_dose_date")}
+                      </div>
+                      <div className="vaccination-renewal-fields">
+                        <div className="form-field">
+                          <label htmlFor="needs_renewal">
+                            Needs to be renewed?
+                          </label>
+                          <CustomSelect
+                            id="needs_renewal"
+                            value={draft.needs_renewal ? "yes" : "no"}
+                            onChange={(value) => {
+                              update("needs_renewal", value === "yes");
+                              if (value !== "yes") update("renewal_date", "");
+                            }}
+                            options={[
+                              { value: "no", label: "No" },
+                              { value: "yes", label: "Yes" },
+                            ]}
+                          />
+                        </div>
+                        <div className="form-field">
+                          <label htmlFor="renewal_date">Renewal date</label>
+                          <DatePicker
+                            id="renewal_date"
+                            optional
+                            disabled={!draft.needs_renewal}
+                            value={draft.renewal_date ?? ""}
+                            invalid={!!errors.renewal_date}
+                            placeholder="Add renewal date"
+                            onChange={(value) => update("renewal_date", value)}
+                          />
+                          {feedback("renewal_date")}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+                {doctors.error && (
+                  <p role="alert" className="field-error">
+                    {doctors.error}{" "}
+                    <button
+                      type="button"
+                      className="text-link"
+                      onClick={doctors.reload}
+                    >
+                      Retry
+                    </button>
+                  </p>
+                )}
+              </FormSection>
 
-          {type !== "Vaccination" && (
-            <FormSection number={3} title="Medical information">
-              <div className="event-section-grid event-medical-grid">
-                {orderedMedicalFields.map(longField)}
-              </div>
-            </FormSection>
+              {type !== "Vaccination" && (
+                <FormSection number={3} title="Medical information">
+                  <div className="event-section-grid event-medical-grid">
+                    {orderedMedicalFields.map((field) => longField(field))}
+                  </div>
+                </FormSection>
+              )}
+            </>
           )}
 
           <FormSection
-            number={type === "Vaccination" ? 3 : 4}
+            number={type === "Vaccination" || type === "Examination / Test" || type === "Illness" || type === "Migraine" || type === "Injury" || type === "Symptom" || type === "Other" ? 3 : 4}
             title="Additional information"
             className="event-additional-section"
           >
@@ -908,8 +1381,69 @@ export function EventForm({
             <Save size={17} />
             {busy ? "Saving…" : event ? "Save changes" : "Create event"}
           </button>
+          <button
+            type="submit"
+            className="button secondary-button"
+            disabled={busy || labelBusy}
+            onClick={() => {
+              submitMode.current = "calendar";
+            }}
+          >
+            <CalendarPlus size={17} />
+            {event ? "Save and add to Calendar" : "Create and add to Calendar"}
+          </button>
         </div>
       </form>
+      {importOpen && (
+        <dialog
+          ref={importDialog}
+          className="delete-dialog import-event-dialog structured-form-dialog"
+          aria-labelledby="event-import-title"
+          onCancel={(event) => {
+            event.preventDefault();
+            if (!importing) setImportOpen(false);
+          }}
+        >
+          <h2 id="event-import-title">Import event</h2>
+          <div className="import-event-body">
+            <div className="form-field">
+              <label htmlFor="event-import-json">JSON</label>
+              <textarea
+                id="event-import-json"
+                value={importText}
+                rows={12}
+                disabled={importing}
+                spellCheck={false}
+                placeholder='{"doctor_or_practice_name":"..."}'
+                onChange={(event) => setImportText(event.target.value)}
+              />
+            </div>
+            {importError && (
+              <p className="form-error" role="alert">
+                {importError}
+              </p>
+            )}
+          </div>
+          <div className="form-actions">
+            <button
+              type="button"
+              className="button secondary-button"
+              disabled={importing}
+              onClick={() => setImportOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="button"
+              disabled={importing || !importText.trim()}
+              onClick={importJson}
+            >
+              {importing ? "Importing…" : "Import"}
+            </button>
+          </div>
+        </dialog>
+      )}
       {discard && (
         <ConfirmDialog
           title="Discard your changes?"

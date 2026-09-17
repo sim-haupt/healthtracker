@@ -3,8 +3,6 @@ import { formatDateTime } from "./date-format";
 export const eventTypes = [
   "Doctor Visit",
   "Illness",
-  "Medication",
-  "Vaccination",
   "Examination / Test",
   "Injury",
   "Symptom",
@@ -22,6 +20,15 @@ export type DetailField =
   | "notes";
 export type Label = { id: string; name: string };
 export type HealthEvent = {
+  test_type?: string | null;
+  severity?: string | null;
+  trigger?: string | null;
+  relief?: string | null;
+  injury_type?: string | null;
+  body_area?: string | null;
+  frequency?: string | null;
+  recovery?: string | null;
+  action?: string | null;
   disease?: string | null;
   dose_number?: number | null;
   dose_total?: number | null;
@@ -71,6 +78,15 @@ export type EventSummary = Pick<
   | "event_date"
   | "end_date"
   | "disease"
+  | "test_type"
+  | "severity"
+  | "trigger"
+  | "relief"
+  | "injury_type"
+  | "body_area"
+  | "frequency"
+  | "recovery"
+  | "action"
   | "dose_number"
   | "dose_total"
   | "next_dose_date"
@@ -166,6 +182,15 @@ export function eventDraft(
   initialDate?: string,
 ): EventDraft {
   return {
+    test_type: event?.test_type ?? "",
+    severity: event?.severity ?? "",
+    trigger: event?.trigger ?? "",
+    relief: event?.relief ?? "",
+    injury_type: event?.injury_type ?? "",
+    body_area: event?.body_area ?? "",
+    frequency: event?.frequency ?? "",
+    recovery: event?.recovery ?? "",
+    action: event?.action ?? "",
     disease: event?.disease ?? "",
     dose_number: event?.dose_number ? String(event.dose_number) : "",
     dose_total: event?.dose_total ? String(event.dose_total) : "",
@@ -198,6 +223,26 @@ export function validateDraft(
   profileIds: string[],
 ): Record<string, string> {
   const errors: Record<string, string> = {};
+  if (draft.test_type && draft.test_type.length > 300)
+    errors.test_type = "Use 300 characters or fewer.";
+  if (draft.severity && draft.event_type === "Migraine" && !["1", "2", "3", "4", "5"].includes(draft.severity))
+    errors.severity = "Choose a severity from 1 to 5.";
+  else if (draft.severity && draft.event_type !== "Migraine" && !["Mild", "Moderate", "Severe"].includes(draft.severity))
+    errors.severity = "Choose a severity.";
+  if (draft.trigger && draft.trigger.length > 5000)
+    errors.trigger = "Use 5,000 characters or fewer.";
+  if (draft.relief && draft.relief.length > 5000)
+    errors.relief = "Use 5,000 characters or fewer.";
+  if (draft.injury_type && draft.injury_type.length > 300)
+    errors.injury_type = "Use 300 characters or fewer.";
+  if (draft.body_area && draft.body_area.length > 300)
+    errors.body_area = "Use 300 characters or fewer.";
+  if (draft.frequency && !["Once", "Occasional", "Frequent", "Constant"].includes(draft.frequency))
+    errors.frequency = "Choose a frequency.";
+  if (draft.recovery && draft.recovery.length > 5000)
+    errors.recovery = "Use 5,000 characters or fewer.";
+  if (draft.action && draft.action.length > 5000)
+    errors.action = "Use 5,000 characters or fewer.";
   if (draft.disease && draft.disease.length > 300)
     errors.disease = "Use 300 characters or fewer.";
   if (draft.next_dose_date && !parseDay(draft.next_dose_date))
@@ -255,6 +300,15 @@ export function draftInput(
       : new Date(value).toISOString();
   return {
     ...draft,
+    test_type: draft.test_type?.trim() || null,
+    severity: draft.severity || null,
+    trigger: draft.trigger?.trim() || null,
+    relief: draft.relief?.trim() || null,
+    injury_type: draft.injury_type?.trim() || null,
+    body_area: draft.body_area?.trim() || null,
+    frequency: draft.frequency || null,
+    recovery: draft.recovery?.trim() || null,
+    action: draft.action?.trim() || null,
     disease: draft.disease?.trim() || null,
     dose_number: draft.dose_number ? Number(draft.dose_number) : null,
     dose_total: draft.dose_total ? Number(draft.dose_total) : null,

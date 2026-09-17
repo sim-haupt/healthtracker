@@ -73,6 +73,70 @@ export function eventsOnDay(events: EventSummary[], day: Date) {
         a.id.localeCompare(b.id),
     );
 }
+export type CalendarEventSegment = {
+  event: EventSummary;
+  week: number;
+  startColumn: number;
+  endColumn: number;
+  lane: number;
+  continuesBefore: boolean;
+  continuesAfter: boolean;
+};
+export function calendarEventSegments(
+  events: EventSummary[],
+  days: Date[],
+  maxLanes = 2,
+) {
+  const segments: CalendarEventSegment[] = [];
+  for (let week = 0; week < Math.ceil(days.length / 7); week++) {
+    const weekDays = days.slice(week * 7, week * 7 + 7);
+    const candidates = events
+      .map((event) => {
+        const occupied = weekDays
+          .map((day, index) =>
+            eventsOnDay([event], day).length ? index : -1,
+          )
+          .filter((index) => index >= 0);
+        if (!occupied.length) return null;
+        const startColumn = occupied[0] + 1;
+        const endColumn = occupied[occupied.length - 1] + 1;
+        return {
+          event,
+          startColumn,
+          endColumn,
+          continuesBefore:
+            eventsOnDay(
+              [event],
+              new Date(
+                weekDays[0].getFullYear(),
+                weekDays[0].getMonth(),
+                weekDays[0].getDate() - 1,
+              ),
+            ).length > 0,
+          continuesAfter:
+            eventsOnDay([event], nextDay(weekDays[weekDays.length - 1])).length > 0,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => !!item)
+      .sort(
+        (a, b) =>
+          a.startColumn - b.startColumn ||
+          b.endColumn - b.startColumn - (a.endColumn - a.startColumn) ||
+          Date.parse(a.event.event_date) - Date.parse(b.event.event_date) ||
+          a.event.id.localeCompare(b.event.id),
+      );
+    const laneEnds = Array.from({ length: maxLanes }, () => 0);
+    for (const candidate of candidates) {
+      const lane = laneEnds.findIndex(
+        (lastColumn) => lastColumn < candidate.startColumn,
+      );
+      if (lane < 0) continue;
+      laneEnds[lane] = candidate.endColumn;
+      segments.push({ ...candidate, week, lane });
+    }
+  }
+  return segments;
+}
 export function calendarQuery(query: Record<string, unknown>, days: Date[]) {
   const start = Math.max(
     days[0].getTime(),

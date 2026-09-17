@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import { Check, Search } from "lucide-react";
+import { Check, Search, X } from "lucide-react";
 import type { Label } from "@/lib/tracker";
 
 export function TagPill({ name }: { name: string }) {
@@ -48,7 +48,7 @@ export function TagFilterPills({
     >
       <legend>{legend}</legend>
       {searchable && (
-        <div className="tag-filter-search">
+        <div className="filter-bar-search tag-filter-search">
           <Search size={16} aria-hidden="true" />
           <label className="sr-only" htmlFor={searchId}>
             Search tags
@@ -60,6 +60,16 @@ export function TagFilterPills({
             placeholder="Search tags…"
             onChange={(event) => setQuery(event.target.value)}
           />
+          {query && (
+            <button
+              type="button"
+              className="search-clear-button"
+              aria-label="Clear tag search"
+              onClick={() => setQuery("")}
+            >
+              <X size={14} aria-hidden="true" />
+            </button>
+          )}
         </div>
       )}
       {visibleItems.length ? (

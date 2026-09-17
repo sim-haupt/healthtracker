@@ -5,6 +5,7 @@ import type { DocumentDataAccess, HealthDocument } from "./documents.js";
 import type { ReminderDataAccess, Reminder } from "./reminders.js";
 import { randomUUID } from "node:crypto";
 import type { AttachmentDataAccess } from "./attachments.js";
+import type { Attachment } from "./attachment-types.js";
 import { createClient } from "@supabase/supabase-js";
 import {
   EventDataError,
@@ -323,19 +324,15 @@ export function createUserDataAccess(
       return result.data as Reminder[];
     },
     async listAttachments(eventId) {
-      const { data, error } = await client
-        .from("attachments")
-        .select(
-          "id,health_event_id,file_name,file_path,mime_type,file_size,document_category,description,created_at",
-        )
-        .eq("health_event_id", eventId)
-        .order("created_at");
+      const { data, error } = await client.rpc("event_documents", {
+        p_event_id: eventId,
+      });
       if (error)
         throw new EventDataError(
           503,
           "Attachments are temporarily unavailable.",
         );
-      return data!;
+      return data as Attachment[];
     },
     async createAttachment(eventId, ownerId, input) {
       const id = randomUUID();
@@ -373,6 +370,18 @@ export function createUserDataAccess(
         }
       }
       return data!;
+    },
+    async linkAttachment(eventId, documentId) {
+      const { data, error } = await client.rpc("link_event_document", {
+        p_event_id: eventId,
+        p_document_id: documentId,
+      });
+      if (error)
+        throw new EventDataError(
+          503,
+          "Unable to attach the document. Refresh and try again.",
+        );
+      return data as Attachment | null;
     },
     deleteAttachment,
     async listDocuments(query) {
@@ -435,7 +444,7 @@ export function createUserDataAccess(
       let query = client
         .from("health_events")
         .select(
-          "id,profile_id,provider_id,event_type,title,event_date,end_date,description,symptoms,diagnosis,treatment,prescription,doctor,location,notes,disease,dose_number,dose_total,next_dose_date,needs_renewal,renewal_date,created_at,updated_at",
+          "id,profile_id,provider_id,event_type,title,event_date,end_date,description,symptoms,diagnosis,treatment,prescription,doctor,location,notes,test_type,severity,trigger,relief,injury_type,body_area,frequency,recovery,action,disease,dose_number,dose_total,next_dose_date,needs_renewal,renewal_date,created_at,updated_at",
           { count: "exact" },
         )
         .eq("provider_id", id);

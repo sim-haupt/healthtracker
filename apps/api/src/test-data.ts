@@ -30,6 +30,7 @@ export const emptyEventData: EventTypeDataAccess &
   createAttachment: async () => {
     throw new Error("Unexpected attachment write");
   },
+  linkAttachment: async () => null,
   deleteAttachment: async () => false,
   listDocuments: async () => ({ documents: [], total: 0 }),
   listReminders: async () => ({ reminders: [], total: 0 }),

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
 const uid = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 test("private attachments enforce database and Storage isolation and upload constraints", async () => {
@@ -12,34 +12,11 @@ test("private attachments enforce database and Storage isolation and upload cons
  create schema storage;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
  create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,metadata jsonb);
  alter table storage.objects enable row level security;grant usage on schema storage to authenticated,anon;grant select,insert,update,delete on storage.objects to authenticated,anon;`);
-    for (const file of [
-      "202609110001_initial_health_schema.sql",
-      "202609120001_tracker_experience.sql",
-      "202609120002_attachments.sql",
-      "202609120003_settings.sql",
-      "202609120004_timeline.sql",
-      "202609120005_providers.sql",
-      "202609120006_vaccinations.sql",
-      "202609120007_documents.sql",
-      "202609120008_episodes.sql",
-      "202609120009_event_types.sql",
-      "202609120010_pastel_event_types.sql",
-      "202609120011_cool_event_type_colors.sql",
-      "202609130012_link_event_to_episode.sql",
-      "202609130013_episode_list_events.sql",
-      "202609130014_provider_ratings.sql",
-      "202609130015_monochrome_green_scale.sql",
-      "202609130016_vivid_event_type_colors.sql",
-      "202609140017_automatic_episode_status.sql",
-      "202609140018_vaccination_dose_and_renewal.sql",
-      "202609140019_reminders.sql",
-    ])
-      await db.exec(
-        await readFile(
-          new URL(`../migrations/${file}`, import.meta.url),
-          "utf8",
-        ),
-      );
+    const migrationDirectory = new URL("../migrations/", import.meta.url);
+    for (const file of (await readdir(migrationDirectory))
+      .filter((name) => name.endsWith(".sql"))
+      .sort())
+      await db.exec(await readFile(new URL(file, migrationDirectory), "utf8"));
     await db.query("insert into auth.users values ($1),($2),($3)", [
       uid(1),
       uid(2),
@@ -136,6 +113,36 @@ test("private attachments enforce database and Storage isolation and upload cons
         db.query("delete from public.health_events where id=$1", [uid(11)]),
         { code: "23001" },
       );
+      await db.query(
+        `insert into public.health_events(id,owner_id,profile_id,event_type,title,event_date)
+         select $1,owner_id,profile_id,'Other','Linked document event',now()
+         from public.health_events where id=$2`,
+        [uid(13), uid(11)],
+      );
+      const linked = (
+        await db.query("select public.link_event_document($1,$2) as document", [
+          uid(13),
+          uid(21),
+        ])
+      ).rows[0].document;
+      assert.equal(linked.id, uid(21));
+      const linkedDocuments = (
+        await db.query("select public.event_documents($1) as documents", [
+          uid(13),
+        ])
+      ).rows[0].documents;
+      assert.equal(linkedDocuments.length, 1);
+      assert.equal(linkedDocuments[0].id, uid(21));
+      await db.query("delete from public.health_events where id=$1", [uid(13)]);
+    });
+    await run(uid(2), async () => {
+      const unavailable = (
+        await db.query("select public.link_event_document($1,$2) as document", [
+          uid(12),
+          uid(21),
+        ])
+      ).rows[0].document;
+      assert.equal(unavailable, null);
     });
     const timeline = async (filters = {}, kind = "all") =>
       (
@@ -154,21 +161,21 @@ test("private attachments enforce database and Storage isolation and upload cons
     );
     await run(uid(1), async () => {
       const all = await timeline();
-      assert.equal(all.total, 2);
-      assert.equal(all.items[0].entry_type, "document");
-      assert.equal(all.items[1].summary, "Short summary");
+      assert.equal(all.total, 1);
+      assert.equal(all.items[0].entry_type, "event");
+      assert.equal(all.items[0].summary, "Short summary");
       const first = await timeline({ page: 1, page_size: 1 }),
         second = await timeline({ page: 2, page_size: 1 });
-      assert.equal(first.total, 2);
-      assert.notEqual(first.items[0].id, second.items[0].id);
+      assert.equal(first.total, 1);
+      assert.equal(first.items.length, 1);
+      assert.equal(second.items.length, 0);
       const year = await timeline({
         date_from: "2026-01-01T00:00:00Z",
         date_to: "2027-01-01T00:00:00Z",
       });
-      assert.equal(year.total, 1);
-      assert.equal(year.items[0].entry_type, "document");
+      assert.equal(year.total, 0);
       assert.equal((await timeline({}, "event")).total, 1);
-      assert.equal((await timeline({}, "document")).total, 1);
+      assert.equal((await timeline({}, "document")).total, 0);
       assert.equal((await timeline({ event_type: "Vaccination" })).total, 0);
       assert.equal(
         (
@@ -181,7 +188,7 @@ test("private attachments enforce database and Storage isolation and upload cons
             ).rows[0].profile_id,
           })
         ).total,
-        2,
+        1,
       );
       assert.equal((await timeline({ tag_ids: [uid(999)] })).total, 0);
       assert.equal((await timeline({ category_id: uid(999) })).total, 0);
@@ -241,8 +248,8 @@ test("private attachments enforce database and Storage isolation and upload cons
       );
       assert.equal(
         (await timeline({}, "document")).total,
-        1,
-        "incomplete uploads are excluded",
+        0,
+        "documents are excluded from the timeline",
       );
       assert.equal(
         (await documents()).total,
@@ -753,7 +760,8 @@ test("private attachments enforce database and Storage isolation and upload cons
     await run(uid(1), async () => {
       const defaults = (await db.query("select * from public.event_types"))
         .rows;
-      assert.equal(defaults.length, 8);
+      assert.equal(defaults.length, 9);
+      assert.ok(defaults.some((eventType) => eventType.key === "Migraine"));
       customType = (
         await db.query(
           "insert into public.event_types(name,color) values('Custom check','#249E94') returning *",
@@ -823,37 +831,63 @@ test("private attachments enforce database and Storage isolation and upload cons
     });
     let vaccinationId;
     await run(uid(1), async () => {
-      const profile = (await db.query("select id from public.profiles order by created_at,id limit 1")).rows[0].id;
+      const profile = (
+        await db.query(
+          "select id from public.profiles order by created_at,id limit 1",
+        )
+      ).rows[0].id;
       vaccinationId = uid(90);
       await db.query(
         `insert into public.health_events(id,profile_id,event_type,title,disease,event_date,next_dose_date,needs_renewal,renewal_date)
          values($1,$2,'Vaccination','Example vaccine','Example disease',now(),'2027-03-10',true,'2036-03-10')`,
         [vaccinationId, profile],
       );
-      const generated = (await db.query(
-        "select reminder_kind,title,due_date::text,status from public.reminders where source_event_id=$1 order by reminder_kind",
-        [vaccinationId],
-      )).rows;
-      assert.deepEqual(generated.map((item) => item.reminder_kind), ["next_dose", "renewal"]);
+      const generated = (
+        await db.query(
+          "select reminder_kind,title,due_date::text,status from public.reminders where source_event_id=$1 order by reminder_kind",
+          [vaccinationId],
+        )
+      ).rows;
+      assert.deepEqual(
+        generated.map((item) => item.reminder_kind),
+        ["next_dose", "renewal"],
+      );
       assert.equal(generated[0].status, "scheduled");
-      await db.query("update public.health_events set next_dose_date='2027-04-10',needs_renewal=false where id=$1", [vaccinationId]);
-      const changed = (await db.query(
-        "select reminder_kind,due_date::text from public.reminders where source_event_id=$1",
+      await db.query(
+        "update public.health_events set next_dose_date='2027-04-10',needs_renewal=false where id=$1",
         [vaccinationId],
-      )).rows;
-      assert.deepEqual(changed, [{ reminder_kind: "next_dose", due_date: "2027-04-10" }]);
+      );
+      const changed = (
+        await db.query(
+          "select reminder_kind,due_date::text from public.reminders where source_event_id=$1",
+          [vaccinationId],
+        )
+      ).rows;
+      assert.deepEqual(changed, [
+        { reminder_kind: "next_dose", due_date: "2027-04-10" },
+      ]);
       await db.query(
         "insert into public.reminders(profile_id,source_event_id,title,due_date,recurrence) values($1,$2,'Annual check','2027-09-14','yearly')",
         [profile, vaccinationId],
       );
       assert.equal(
-        (await db.query("select count(*) as n from public.reminders where source_event_id=$1", [vaccinationId])).rows[0].n,
+        (
+          await db.query(
+            "select count(*) as n from public.reminders where source_event_id=$1",
+            [vaccinationId],
+          )
+        ).rows[0].n,
         2,
       );
     });
     await run(uid(2), async () => {
       assert.equal(
-        (await db.query("select count(*) as n from public.reminders where source_event_id=$1", [vaccinationId])).rows[0].n,
+        (
+          await db.query(
+            "select count(*) as n from public.reminders where source_event_id=$1",
+            [vaccinationId],
+          )
+        ).rows[0].n,
         0,
       );
     });

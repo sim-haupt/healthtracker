@@ -55,19 +55,7 @@ Production builds use Next.js's supported webpack bundler to avoid a local Turbo
 
 ## Deployment
 
-### Vercel frontend
-
-Import the repository with the Next.js framework and `apps/web` as Root Directory. Enable workspace source access outside the root if prompted. Use the root lockfile for installation (`npm ci` from the repository root); build the web workspace with `npm run build` and keep Next.js's default output. Set the three public values from `apps/web/.env.example`, with `NEXT_PUBLIC_API_URL` pointing to the HTTPS Railway origin. Public environment values require a rebuild when changed.
-
-### Railway API
-
-Deploy from the repository root using `railway.json`. It builds/starts only the API workspace, binds to `0.0.0.0` on Railway's `PORT`, and checks `/health`. Set Node.js 22 or later. Set the API variables with `NODE_ENV=production`, the exact HTTPS Vercel origin in `FRONTEND_ORIGIN` (no trailing slash), and `TRUST_PROXY_HOPS=1` for Railway's proxy. The API fails startup on invalid configuration and shuts down gracefully on SIGTERM.
-
-### Supabase
-
-Apply all migrations in filename order and approve the intended account before deployment. Disable public signups; keep the Auth Site URL set to the frontend domain and any future redirect URLs explicitly restricted. `DATABASE_URL` is optional for migration tooling and not used by the REST API. The attachments migration creates the private `health-attachments` bucket and its Storage policies. No service-role key is needed.
-
-No remote database changes or deployment are performed automatically by this repository.
+Follow [DEPLOYMENT.md](DEPLOYMENT.md) for the complete production checklist and the required Supabase, Railway, and Vercel settings. No remote database changes or deployments are performed automatically by this repository.
 
 ## Health events
 
@@ -218,21 +206,8 @@ Episodes appear in profile overviews (active first, up to four) and Timeline, wi
 
 Authenticated REST endpoints: `GET/POST /api/v1/episodes`, `GET/PUT/DELETE /api/v1/episodes/:id`. Listing accepts optional `profile_id`. Writes accept `title`, `profile_id`, `start_date`, nullable `end_date`, `status`, `description`, and `event_ids` (up to 500). Saving fields and event links is atomic. RLS and composite foreign keys prevent cross-account and cross-profile links. An event linked to an episode cannot change profile until it is unlinked.
 
-## Temporary local demo
-
-With Node 22 or later, run `npm run demo` from the repository root, then open **http://localhost:3001**.
-
-- Email: `demo@example.com`
-- Password: `Local-Health-2026!`
-
-The demo runs entirely on loopback interfaces (ports 3001, 4000, and 54321). Stop any existing API on port 4000 before starting it. It creates synthetic Alex and Sam profiles, recent/upcoming events, two episodes, a vaccination with a future dose date, a provider, and a sample document. All data and uploaded files exist in memory and disappear when the runner stops. Restarting creates a fresh demo; sign in again if an old session remains.
-
-This is a local Supabase-compatible test adapter, not a hosted Supabase account or a full Supabase installation. It runs the actual PostgreSQL migrations and RLS policies in PGlite and the existing Express API. It does not validate hosted Supabase Auth, Storage, or deployment behavior. No production authentication checks are disabled, no environment files are changed, and the runner refuses to start with `NODE_ENV=production`.
-
-Run `npm run demo:check` to verify the seeded overview, episodes, and documents without opening any ports. The local runner and temporary credentials are never imported by production code.
-
 ## Event types and colors
 
 Apply `supabase/migrations/202609120009_event_types.sql`. Settings → Event types supports adding types, editing their display names and colors, and removing them from future selection. Eight defaults are seeded for each account, using restrained teal shades. Badges and calendar accents use pale color backgrounds with grey text. Custom types use the general event fields. Built-in behavior uses stable keys, so renaming a vaccination type preserves its specialized fields and dose reminders.
 
-Removal archives a type: existing events keep their label and color and can still be edited and filtered. New events cannot use a removed type. REST endpoints are `GET/POST /api/v1/event-types` and `PUT/DELETE /api/v1/event-types/:id`. Writes accept only `name` and a six-digit hex `color`. RLS isolates types per account. The local demo loads this migration on restart; restarting resets its sample data.
+Removal archives a type: existing events keep their label and color and can still be edited and filtered. New events cannot use a removed type. REST endpoints are `GET/POST /api/v1/event-types` and `PUT/DELETE /api/v1/event-types/:id`. Writes accept only `name` and a six-digit hex `color`. RLS isolates types per account.

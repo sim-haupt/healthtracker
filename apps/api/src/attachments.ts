@@ -22,6 +22,7 @@ export type AttachmentDataAccess = {
       tag_ids: string[];
     },
   ): Promise<Attachment>;
+  linkAttachment(eventId: string, documentId: string): Promise<Attachment | null>;
   deleteAttachment(eventId: string, id: string): Promise<boolean>;
 };
 export function attachmentRouter() {
@@ -75,6 +76,23 @@ export function attachmentRouter() {
         parsed.data,
       ),
     });
+  });
+  router.post("/link", async (req, res) => {
+    const parsed = z
+      .object({ document_id: z.uuid("Choose an available document.") })
+      .strict()
+      .safeParse(req.body);
+    if (!parsed.success)
+      throw new EventDataError(400, "Choose an available document.");
+    const attachment = await (
+      res.locals.data as UserDataAccess
+    ).linkAttachment(String(res.locals.eventId), parsed.data.document_id);
+    if (!attachment)
+      throw new EventDataError(
+        404,
+        "Document not found or unavailable for this health profile.",
+      );
+    res.status(201).json({ attachment });
   });
   router.delete("/:attachmentId", async (req, res) => {
     const id = String(req.params.attachmentId);

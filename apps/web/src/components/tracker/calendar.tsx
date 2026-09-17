@@ -8,6 +8,7 @@ import {
   dayKey,
   monthDays,
   eventsOnDay,
+  calendarEventSegments,
   calendarQuery,
   nextDay,
 } from "@/lib/tracker";
@@ -45,6 +46,7 @@ export function HealthCalendar() {
     return eventsOnDay(data.events, day);
   }
   const chosen = visibleEvents(selectedDay);
+  const eventSegments = data ? calendarEventSegments(data.events, days) : [];
   function move(delta: number) {
     const next = new Date(month.getFullYear(), month.getMonth() + delta, 1);
     setMonth(next);
@@ -111,7 +113,7 @@ export function HealthCalendar() {
               ))}
             </div>
             <div className="calendar-grid" aria-label={title} aria-busy={!data}>
-              {days.map((day) => {
+              {days.map((day, index) => {
                 const key = dayKey(day),
                   events = visibleEvents(day),
                   current = day.getMonth() === month.getMonth();
@@ -119,6 +121,10 @@ export function HealthCalendar() {
                   <div
                     key={key}
                     className={`calendar-day ${current ? "" : "outside-month"} ${selected === key ? "selected-day" : ""}`}
+                    style={{
+                      gridColumn: (index % 7) + 1,
+                      gridRow: Math.floor(index / 7) + 1,
+                    }}
                     onClick={() => setSelected(key)}
                   >
                     <button
@@ -129,38 +135,6 @@ export function HealthCalendar() {
                     >
                       {day.getDate()}
                     </button>
-                    <div className="calendar-event-links">
-                      {events.slice(0, 2).map((event) => {
-                        const profile = profiles.find(
-                          (item) => item.id === event.profile_id,
-                        );
-                        const eventType = typeOptions.types.find(
-                          (type) => type.key === event.event_type,
-                        );
-                        const typeName = eventType?.name ?? event.event_type;
-                        return (
-                          <Link
-                            key={event.id}
-                            className="calendar-event"
-                            style={
-                              {
-                                "--event-color": eventType?.color ?? "#005461",
-                              } as CSSProperties
-                            }
-                            href={`/events/${event.id}`}
-                            title={`${profile?.name ?? "Health profile"} · ${typeName}: ${eventDisplayTitle(event)}`}
-                          >
-                            {!activeProfile && (
-                              <ProfileAvatar
-                                name={profile?.name ?? "Health profile"}
-                                avatar={profile?.avatar}
-                              />
-                            )}
-                            <span>{eventDisplayTitle(event)}</span>
-                          </Link>
-                        );
-                      })}
-                    </div>
                     {events.length > 0 && (
                       <button
                         className="day-event-count"
@@ -172,6 +146,39 @@ export function HealthCalendar() {
                       </button>
                     )}
                   </div>
+                );
+              })}
+              {eventSegments.map((segment) => {
+                const event = segment.event;
+                const profile = profiles.find(
+                  (item) => item.id === event.profile_id,
+                );
+                const eventType = typeOptions.types.find(
+                  (type) => type.key === event.event_type,
+                );
+                const typeName = eventType?.name ?? event.event_type;
+                return (
+                  <Link
+                    key={`${event.id}-${segment.week}`}
+                    className={`calendar-event-segment lane-${segment.lane} ${segment.continuesBefore ? "continues-before" : ""} ${segment.continuesAfter ? "continues-after" : ""}`}
+                    style={
+                      {
+                        gridColumn: `${segment.startColumn} / ${segment.endColumn + 1}`,
+                        gridRow: segment.week + 1,
+                        "--event-color": eventType?.color ?? "#005461",
+                      } as CSSProperties
+                    }
+                    href={`/events/${event.id}`}
+                    title={`${profile?.name ?? "Health profile"} · ${typeName}: ${eventDisplayTitle(event)}`}
+                  >
+                    {!activeProfile && (
+                      <ProfileAvatar
+                        name={profile?.name ?? "Health profile"}
+                        avatar={profile?.avatar}
+                      />
+                    )}
+                    <span>{eventDisplayTitle(event)}</span>
+                  </Link>
                 );
               })}
             </div>

@@ -6,6 +6,7 @@ import {
   nextDay,
   monthDays,
   eventsOnDay,
+  calendarEventSegments,
   filterQuery,
   calendarQuery,
   emptyFilters,
@@ -56,6 +57,14 @@ test("calendar includes spanning events and excludes dates outside their interva
   };
   assert.equal(eventsOnDay([instant], new Date(2026, 8, 10)).length, 0);
   assert.equal(eventsOnDay([instant], new Date(2026, 8, 11)).length, 1);
+});
+test("calendar renders a multi-day event once per week as a spanning bar", () => {
+  const days = monthDays(new Date(2026, 8, 1));
+  const segments = calendarEventSegments([event], days);
+  assert.equal(segments.length, 1);
+  assert.equal(segments[0].startColumn, 4);
+  assert.equal(segments[0].endColumn, 7);
+  assert.equal(segments[0].lane, 0);
 });
 test("date filtering is inclusive of the selected end day and intersects visible weeks", () => {
   const parsed = filterQuery(

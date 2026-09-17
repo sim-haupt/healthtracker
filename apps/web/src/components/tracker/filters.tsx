@@ -1,6 +1,6 @@
 "use client";
 import { useProviders } from "../providers-context";
-import { useEventTypes } from "../event-types";
+import { isUserEventType, useEventTypes } from "../event-types";
 import { emptyFilters, filterQuery, type TrackerFilters } from "@/lib/tracker";
 import { useProfiles } from "../app-shell";
 import { useTracker } from "./context";
@@ -65,7 +65,7 @@ export function TrackerFiltersBar({
               onChange={(value) => update("event_type", value)}
               options={[
                 { value: "", label: "All event types" },
-                ...typeOptions.types.map((type) => ({
+                ...typeOptions.types.filter(isUserEventType).map((type) => ({
                   value: type.key,
                   label: `${type.name}${type.archived ? " (removed)" : ""}`,
                 })),

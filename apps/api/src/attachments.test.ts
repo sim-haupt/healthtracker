@@ -37,7 +37,8 @@ test("attachment validation rejects unsafe filenames, mismatched types and overs
   }
 });
 test("attachment routes authenticate, validate ownership and scope deletion to the event", async () => {
-  let writes = 0;
+  let writes = 0,
+    links = 0;
   const app = createApp({
     frontendOrigin: "http://localhost:3000",
     verifyToken: async (token) =>
@@ -68,6 +69,22 @@ test("attachment routes authenticate, validate ownership and scope deletion to t
           ...input,
         };
       },
+      linkAttachment: async (id, document) => {
+        links++;
+        assert.equal(id, eventId);
+        if (document !== attachmentId) return null;
+        return {
+          id: attachmentId,
+          health_event_id: "source-event",
+          file_name: "existing.pdf",
+          file_path: "private/existing",
+          mime_type: "application/pdf",
+          file_size: 100,
+          document_category: "lab result",
+          description: null,
+          created_at: "now",
+        };
+      },
       deleteAttachment: async (id, attachment) => {
         assert.equal(id, eventId);
         return attachment === attachmentId;
@@ -79,6 +96,7 @@ test("attachment routes authenticate, validate ownership and scope deletion to t
     await request(app)
       [method](method === "delete" ? `${base}/${attachmentId}` : base)
       .expect(401);
+  await request(app).post(`${base}/link`).send({ document_id: attachmentId }).expect(401);
   await request(app).get(base).set("Authorization", "Bearer other").expect(404);
   await request(app)
     .post(base)
@@ -108,6 +126,17 @@ test("attachment routes authenticate, validate ownership and scope deletion to t
       tag_ids: [tagId],
     })
     .expect(201);
+  await request(app)
+    .post(`${base}/link`)
+    .set("Authorization", "Bearer good")
+    .send({ document_id: attachmentId })
+    .expect(201);
+  await request(app)
+    .post(`${base}/link`)
+    .set("Authorization", "Bearer good")
+    .send({ document_id: "not-a-document" })
+    .expect(400);
+  assert.equal(links, 1);
   await request(app)
     .post(base)
     .set("Authorization", "Bearer good")

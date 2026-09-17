@@ -19,7 +19,7 @@ test("timeline route validates filters and requires authentication", async () =>
       listProfiles: async () => [],
       timeline: async (query, kind) => {
         calls++;
-        assert.equal(kind, "document");
+        assert.equal(kind, "episode");
         assert.equal(query.page_size, 30);
         return { items: [], total: 0 };
       },
@@ -47,7 +47,7 @@ test("timeline route validates filters and requires authentication", async () =>
   await request(app)
     .post(path)
     .set("Authorization", "Bearer valid")
-    .send({ filters: { page_size: 30 }, entry_type: "document" })
+    .send({ filters: { page_size: 30 }, entry_type: "episode" })
     .expect(200)
     .expect("Cache-Control", "no-store");
   assert.equal(calls, 1);

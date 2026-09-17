@@ -4,14 +4,19 @@ This directory contains versioned migrations and an explicit account-approval sc
 
 ## Apply to your Supabase project
 
-1. Create a Supabase project and disable public signups in **Authentication → Providers → Email**. Keep email/password login enabled. Create the intended login account through Supabase's administrative user flow and ensure it has a usable password. Do not put account passwords in SQL or environment files.
-2. Open **SQL Editor** as the project administrator and execute the complete contents of `migrations/202609110001_initial_health_schema.sql` once. It is transactional and intended for a new schema. If tables already exist, review their structure first instead of overwriting them.
-3. Execute `migrations/202609120001_tracker_experience.sql`, then `migrations/202609120002_attachments.sql`, then `migrations/202609120003_settings.sql`, then `migrations/202609120004_timeline.sql`, then `migrations/202609120005_providers.sql`, then `migrations/202609120006_vaccinations.sql`, then `migrations/202609120007_documents.sql`. For an existing installation, apply only migrations not yet applied.
-4. Copy the existing Auth user's UUID from **Authentication → Users**. Replace the placeholder in `approve-user.sql` and run that statement. This is also how to approve existing users from the previous `ALLOWED_USER_IDS` environment setting; that setting has been removed.
-5. Approval inserts two rows named **Profile 1** and **Profile 2** into `profiles`. Repeating the approval statement only re-enables access; it never resets renamed profiles or creates duplicates.
-6. Set the Supabase URL and publishable key in both app environment files. Start the API and frontend, sign in, and confirm the profile selector loads both database rows.
+Use the Supabase CLI so every migration in this directory is tracked and applied in filename order:
 
-Alternatively, use the Supabase CLI migration workflow against the intended linked project: initialize a local CLI config if needed, link the project, review pending migrations, then run `supabase db push`. The SQL Editor path does not require the CLI. Choose one migration tracking workflow; do not blindly reapply SQL already run manually.
+```sh
+npx supabase init
+npx supabase login
+npx supabase link --project-ref YOUR_PROJECT_REF
+npx supabase db push --dry-run
+npx supabase db push
+```
+
+Create the intended email/password user in **Authentication → Users**, copy its UUID, replace the placeholder in `approve-user.sql`, and execute that statement in SQL Editor. Approval creates **Profile 1** and **Profile 2** once; rerunning it only re-enables the account. Disable public sign-ups and keep email/password authentication enabled.
+
+See the repository's [production deployment guide](../DEPLOYMENT.md) for the complete Supabase, Railway, and Vercel sequence. Do not manually reapply migrations already recorded in the production migration history, and never run `db reset --linked` against production.
 
 Use the project administrator only for migrations and approvals. Runtime clients use the **publishable/anon key plus the authenticated user's token**, never a secret/service-role key.
 

@@ -10,6 +10,8 @@ import {
   ChevronDown,
   ArrowUpRight,
   FileText,
+  Search,
+  X,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { dayKey } from "@/lib/tracker";
@@ -17,9 +19,8 @@ import { formatDate } from "@/lib/date-format";
 import { eventDisplayTitle, type EventSummary } from "@/lib/events";
 import { useProfiles } from "./app-shell";
 import { useTrackerResults, type EventResults } from "./tracker/use-results";
-import { useTracker } from "./tracker/context";
-import { EventRows } from "./tracker/event-rows";
-import { TagFilterPills, TagPill } from "./ui/labels";
+import { EventLabelEditor } from "./tracker/event-label-editor";
+import { TagPill } from "./ui/labels";
 import { ProfileIdentity } from "./ui/profile-avatar";
 import { RichTextContent, RichTextEditor } from "./ui/rich-text";
 import { DatePicker } from "./ui/pickers";
@@ -39,6 +40,7 @@ export type Episode = {
   status: "active" | "resolved";
   description: string;
   events: EventSummary[];
+  documents?: HealthDocument[];
 };
 
 function EpisodeFormSection({
@@ -139,7 +141,6 @@ function EpisodeEditor({
   onSaved: (e: Episode) => void;
 }) {
   const { profiles, activeProfile } = useProfiles();
-  const { tags } = useTracker();
   const toast = useToast();
   const [draft, setDraft] = useState({
     title: episode?.title ?? "",
@@ -149,11 +150,14 @@ function EpisodeEditor({
     end_date: episode?.end_date ?? "",
     description: episode?.description ?? "",
     event_ids: episode?.events.map((e) => e.id) ?? [],
+    document_ids: episode?.documents?.map((document) => document.id) ?? [],
   });
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [search, setSearch] = useState(""),
+    [documentSearch, setDocumentSearch] = useState(""),
     [tagIds, setTagIds] = useState<string[]>([]),
+    [labelBusy, setLabelBusy] = useState(false),
     [documents, setDocuments] = useState<HealthDocument[]>(),
     [documentError, setDocumentError] = useState(""),
     [documentAttempt, setDocumentAttempt] = useState(0);
@@ -191,15 +195,18 @@ function EpisodeEditor({
   }, [documentAttempt, draft.profile_id]);
   const update = (key: string, value: unknown) =>
     setDraft((d) => ({ ...d, [key]: value }));
-  const relatedDocuments = (documents ?? []).filter((document) =>
-    draft.event_ids.includes(document.health_event_id),
+  const visibleDocuments = (documents ?? []).filter((document) =>
+    [document.file_name, document.description ?? "", document.event_title]
+      .join(" ")
+      .toLowerCase()
+      .includes(documentSearch.toLowerCase()),
   );
   return (
     <form
       className="episode-editor-form"
       onSubmit={async (e) => {
         e.preventDefault();
-        if (busy) return;
+        if (busy || labelBusy) return;
         if (!draft.start_date) {
           setError("Choose a start date.");
           return;
@@ -232,7 +239,7 @@ function EpisodeEditor({
         }
       }}
     >
-      <fieldset disabled={busy}>
+      <fieldset disabled={busy || labelBusy}>
         <legend className="sr-only">Episode details</legend>
         <EpisodeFormSection number={1} title="Episode information">
           <div className="episode-information-grid">
@@ -260,6 +267,7 @@ function EpisodeEditor({
                           ...d,
                           profile_id: e.target.value,
                           event_ids: [],
+                          document_ids: [],
                         }));
                         setTagIds([]);
                       }}
@@ -308,13 +316,12 @@ function EpisodeEditor({
               />
             </div>
             <div className="episode-tags-field">
-              <TagFilterPills
-                legend="Tags"
-                items={tags}
-                selected={tagIds}
-                onChange={(ids) => setTagIds(ids.slice(0, 20))}
-                searchable
-                maxVisible={12}
+              <EventLabelEditor
+                showHeading={false}
+                onBusyChange={setLabelBusy}
+                fieldErrors={{}}
+                tagIds={tagIds}
+                onTags={(ids) => setTagIds(ids.slice(0, 20))}
               />
             </div>
           </div>
@@ -329,13 +336,26 @@ function EpisodeEditor({
               <label className="sr-only" htmlFor="episode-search">
                 Search events
               </label>
-              <input
-                id="episode-search"
-                type="search"
-                placeholder="Search events"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+              <div className="filter-bar-search form-search-field">
+                <Search size={16} aria-hidden="true" />
+                <input
+                  id="episode-search"
+                  type="search"
+                  placeholder="Search events"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+                {search && (
+                  <button
+                    type="button"
+                    className="search-clear-button"
+                    aria-label="Clear event search"
+                    onClick={() => setSearch("")}
+                  >
+                    <X size={14} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
             </div>
             <p className="episode-selection-count">
               {draft.event_ids.length} selected
@@ -401,39 +421,89 @@ function EpisodeEditor({
         </EpisodeFormSection>
 
         <EpisodeFormSection number={3} title="Related documents">
-          {documentError ? (
-            <p role="alert">
-              {documentError}{" "}
-              <button
-                type="button"
-                className="text-link"
-                onClick={() => setDocumentAttempt((attempt) => attempt + 1)}
-              >
-                Retry
-              </button>
+          <fieldset className="episode-picker">
+            <legend className="sr-only">
+              {draft.document_ids.length} related documents selected
+            </legend>
+            <div className="form-field">
+              <label className="sr-only" htmlFor="episode-document-search">
+                Search documents
+              </label>
+              <div className="filter-bar-search form-search-field">
+                <Search size={16} aria-hidden="true" />
+                <input
+                  id="episode-document-search"
+                  type="search"
+                  placeholder="Search documents"
+                  value={documentSearch}
+                  onChange={(event) => setDocumentSearch(event.target.value)}
+                />
+                {documentSearch && (
+                  <button
+                    type="button"
+                    className="search-clear-button"
+                    aria-label="Clear document search"
+                    onClick={() => setDocumentSearch("")}
+                  >
+                    <X size={14} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="episode-selection-count">
+              {draft.document_ids.length} selected
             </p>
-          ) : !documents ? (
-            <p role="status">Loading documents…</p>
-          ) : relatedDocuments.length ? (
-            <ul className="episode-document-options">
-              {relatedDocuments.map((document) => (
-                <li key={document.id}>
-                  <FileText size={18} aria-hidden="true" />
-                  <span>
-                    <strong>{document.file_name}</strong>
-                    <small>
-                      {categoryLabel(document.document_category)} ·{" "}
-                      {document.event_title}
-                    </small>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="overview-empty">
-              Documents attached to selected events will appear here.
-            </p>
-          )}
+            {documentError ? (
+              <p role="alert">
+                {documentError}{" "}
+                <button
+                  type="button"
+                  className="text-link"
+                  onClick={() => setDocumentAttempt((attempt) => attempt + 1)}
+                >
+                  Retry
+                </button>
+              </p>
+            ) : !documents ? (
+              <p role="status">Loading documents…</p>
+            ) : (
+              <div className="episode-event-options episode-document-selector">
+                {visibleDocuments.map((document) => (
+                  <label key={document.id}>
+                    <input
+                      type="checkbox"
+                      checked={draft.document_ids.includes(document.id)}
+                      disabled={
+                        !draft.document_ids.includes(document.id) &&
+                        draft.document_ids.length >= 500
+                      }
+                      onChange={(choice) =>
+                        update(
+                          "document_ids",
+                          choice.target.checked
+                            ? [...draft.document_ids, document.id]
+                            : draft.document_ids.filter(
+                                (id) => id !== document.id,
+                              ),
+                        )
+                      }
+                    />
+                    <FileText size={18} aria-hidden="true" />
+                    <span>
+                      <strong>{document.file_name}</strong>
+                      <small>
+                        {categoryLabel(document.document_category)} ·{" "}
+                        {document.event_title}
+                      </small>
+                    </span>
+                  </label>
+                ))}
+                {!visibleDocuments.length && (
+                  <p>No documents for this profile.</p>
+                )}
+              </div>
+            )}
+          </fieldset>
         </EpisodeFormSection>
       </fieldset>
       {error && (
@@ -445,12 +515,12 @@ function EpisodeEditor({
         <button
           type="button"
           className="button secondary-button"
-          disabled={busy}
+          disabled={busy || labelBusy}
           onClick={onClose}
         >
           Cancel
         </button>
-        <button className="button" disabled={busy}>
+        <button className="button" disabled={busy || labelBusy}>
           {busy ? "Saving…" : "Save episode"}
         </button>
       </div>
@@ -496,6 +566,31 @@ function EpisodeEventTimeline({ events }: { events: EventSummary[] }) {
   );
 }
 
+function EpisodeDocumentList({
+  documents,
+}: {
+  documents: HealthDocument[];
+}) {
+  if (!documents.length)
+    return <p className="overview-empty">No related documents.</p>;
+  return (
+    <ul className="episode-document-options">
+      {documents.map((document) => (
+        <li key={document.id}>
+          <FileText size={18} aria-hidden="true" />
+          <span>
+            <strong>{document.file_name}</strong>
+            <small>
+              {categoryLabel(document.document_category)} ·{" "}
+              {document.event_title}
+            </small>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function EpisodeAccordionCard({ episode }: { episode: Episode }) {
   return (
     <details className="card episode-accordion-card">
@@ -516,6 +611,9 @@ function EpisodeAccordionCard({ episode }: { episode: Episode }) {
           <span>
             {episode.events.length}{" "}
             {episode.events.length === 1 ? "event" : "events"}
+            {episode.documents?.length
+              ? ` · ${episode.documents.length} ${episode.documents.length === 1 ? "document" : "documents"}`
+              : ""}
           </span>
         </div>
         <ChevronDown
@@ -640,13 +738,13 @@ export function EpisodesPage({ id }: { id?: string }) {
               </div>
             )}
           </section>
-          <section className="card episode-related">
+          <section className="card episode-related episode-related-events">
             <h2>Related events</h2>
-            {episode.events.length ? (
-              <EventRows events={episode.events} />
-            ) : (
-              <p className="overview-empty">No related events.</p>
-            )}
+            <EpisodeEventTimeline events={episode.events} />
+          </section>
+          <section className="card episode-related">
+            <h2>Related documents</h2>
+            <EpisodeDocumentList documents={episode.documents ?? []} />
           </section>
           <button
             className="icon-button danger-icon episode-delete-action"

@@ -13,8 +13,6 @@ import {
   TestTube2,
   Bandage,
   Activity,
-  FileText,
-  ImageIcon,
   ArrowUpRight,
 } from "lucide-react";
 import { TrackerFiltersBar, useTrackerQuery } from "./filters";
@@ -44,17 +42,10 @@ const icons: Record<string, typeof Activity> = {
 function TimelineEntry({ item }: { item: TimelineItem }) {
   const { profiles } = useProfiles();
   const profile = profiles.find((p) => p.id === item.profile_id);
-  const document = item.entry_type === "document";
   const episode = item.entry_type === "episode";
-  const Icon = episode
-    ? Layers
-    : document
-      ? item.mime_type?.startsWith("image/")
-        ? ImageIcon
-        : FileText
-      : (icons[item.event_type] ?? Activity);
+  const Icon = episode ? Layers : (icons[item.event_type] ?? Activity);
   return (
-    <li className={`timeline-item ${document ? "timeline-document" : ""}`}>
+    <li className="timeline-item">
       <span className="timeline-marker" aria-hidden>
         <Icon size={18} />
       </span>
@@ -63,7 +54,7 @@ function TimelineEntry({ item }: { item: TimelineItem }) {
         href={
           episode
             ? `/episodes/${item.event_id}`
-            : `/events/${item.event_id}${document ? "#attachments-title" : ""}`
+            : `/events/${item.event_id}`
         }
       >
         <div className="timeline-entry-top">
@@ -82,8 +73,6 @@ function TimelineEntry({ item }: { item: TimelineItem }) {
           </time>
         </div>
         <div className="timeline-kind">
-          {document ? "Uploaded document" : ""}
-          {document ? " · " : ""}
           <EventTypeBadge type={item.event_type} />
         </div>
         <h3>
@@ -94,13 +83,6 @@ function TimelineEntry({ item }: { item: TimelineItem }) {
           <p className="timeline-summary">
             {item.summary}
             {item.summary.length === 320 ? "…" : ""}
-          </p>
-        )}
-        {document && (
-          <p className="timeline-file">
-            {item.title.split(".").pop()?.toUpperCase()} ·{" "}
-            {((item.file_size ?? 0) / 1024 / 1024).toFixed(2)} MB · View
-            attachments
           </p>
         )}
         {item.tags.length > 0 && (
@@ -246,7 +228,6 @@ export function HealthTimeline() {
                 { value: "all", label: "All entries" },
                 { value: "episode", label: "Health episodes" },
                 { value: "event", label: "Health events" },
-                { value: "document", label: "Uploaded documents" },
               ]}
             />
           </div>

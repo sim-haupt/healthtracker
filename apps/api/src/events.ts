@@ -5,13 +5,12 @@ import type { UserDataAccess } from "./data.js";
 export const eventTypes = [
   "Doctor Visit",
   "Illness",
-  "Medication",
-  "Vaccination",
   "Examination / Test",
   "Injury",
   "Symptom",
   "Other",
 ] as const;
+const storedEventTypes = [...eventTypes, "Medication", "Vaccination"] as const;
 const shortText = z
   .string()
   .trim()
@@ -29,6 +28,15 @@ const longText = z
 export const eventInputSchema = z
   .object({
     profile_id: z.uuid("Choose a valid health profile."),
+    test_type: shortText,
+    severity: z.string().trim().max(20).nullable().optional().default(null),
+    trigger: longText,
+    relief: longText,
+    injury_type: shortText,
+    body_area: shortText,
+    frequency: z.enum(["Once", "Occasional", "Frequent", "Constant"]).nullable().optional().default(null),
+    recovery: longText,
+    action: longText,
     disease: shortText,
     dose_number: z
       .number()
@@ -73,7 +81,7 @@ export const eventInputSchema = z
       .optional()
       .default([])
       .transform((ids) => [...new Set(ids)]),
-    event_type: z.union([z.enum(eventTypes), z.uuid()]),
+    event_type: z.union([z.enum(storedEventTypes), z.uuid()]),
     title: z
       .string()
       .trim()
@@ -106,6 +114,19 @@ export const eventInputSchema = z
     notes: longText,
   })
   .strict()
+  .superRefine((value, ctx) => {
+    const allowed = value.event_type === "Migraine"
+      ? ["1", "2", "3", "4", "5"]
+      : ["Mild", "Moderate", "Severe"];
+    if (value.severity && !allowed.includes(value.severity))
+      ctx.addIssue({
+        code: "custom",
+        path: ["severity"],
+        message: value.event_type === "Migraine"
+          ? "Choose a severity from 1 to 5."
+          : "Choose a severity.",
+      });
+  })
   .refine(
     (value) =>
       !value.end_date ||
@@ -155,7 +176,7 @@ export type EventSummary = Pick<
 export const listSchema = z
   .object({
     profile_id: z.uuid().optional(),
-    event_type: z.union([z.enum(eventTypes), z.uuid()]).optional(),
+    event_type: z.union([z.enum(storedEventTypes), z.uuid()]).optional(),
     category_id: z.uuid().optional(),
     provider_id: z.uuid().optional(),
     tag_ids: z
@@ -194,7 +215,7 @@ export type DashboardResult = {
 };
 export type TimelineItem = {
   id: string;
-  entry_type: "event" | "document" | "episode";
+  entry_type: "event" | "episode";
   event_id: string;
   profile_id: string;
   event_type: string;
@@ -204,13 +225,11 @@ export type TimelineItem = {
   summary: string;
   tags: Label[];
   category: Label | null;
-  mime_type: string | null;
-  file_size: number | null;
 };
 export type EventDataAccess = {
   timeline: (
     query: EventQuery,
-    entryType: "all" | "event" | "document" | "episode",
+    entryType: "all" | "event" | "episode",
   ) => Promise<{ items: TimelineItem[]; total: number }>;
   dashboard: (query: EventQuery) => Promise<DashboardResult>;
   listLabels: (kind: "categories" | "tags") => Promise<Label[]>;
@@ -275,7 +294,7 @@ export function eventRouter() {
       .object({
         filters: listSchema,
         entry_type: z
-          .enum(["all", "event", "document", "episode"])
+          .enum(["all", "event", "episode"])
           .default("all"),
       })
       .strict()

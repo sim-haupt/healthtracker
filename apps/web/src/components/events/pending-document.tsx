@@ -68,20 +68,15 @@ export async function attachExistingDocument(
   eventId: string,
   document: HealthDocument,
 ) {
-  const { data, error } = await supabase!.storage
-    .from("health-attachments")
-    .download(document.file_path);
-  if (error) throw new Error("The selected document could not be opened.");
-  const file = new File([data], document.file_name, {
-    type: document.mime_type,
-  });
-  return uploadPendingDocument(eventId, {
-    file,
-    mimeType: document.mime_type,
-    documentType: document.document_category,
-    description: document.description ?? "",
-    tagIds: document.tags.map((tag) => tag.id),
-  });
+  const result = await apiFetch<{ attachment: Attachment }>(
+    `/api/v1/events/${eventId}/attachments/link`,
+    undefined,
+    {
+      method: "POST",
+      body: { document_id: document.id },
+    },
+  );
+  return result.attachment;
 }
 
 export function PendingDocumentPicker({
@@ -198,7 +193,7 @@ export function PendingDocumentPicker({
             id="existing-event-document"
             value={value?.source === "existing" ? value.document.id : ""}
             disabled={disabled || loadingDocuments}
-            placeholder="Select existing document"
+            placeholder="Select document"
             onChange={(id) => {
               const document = documents.find((item) => item.id === id);
               onChange(document ? { source: "existing", document } : null);
@@ -209,8 +204,8 @@ export function PendingDocumentPicker({
                 label: loadingDocuments
                   ? "Loading documents…"
                   : documents.length
-                    ? "Select existing document"
-                    : "No existing documents",
+                    ? "Select document"
+                    : "No documents",
               },
               ...documents.map((document) => ({
                 value: document.id,

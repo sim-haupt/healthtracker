@@ -28,6 +28,10 @@ export type ManagedEventType = {
   color: string;
   archived: boolean;
 };
+const reservedEventTypeKeys = new Set(["Medication", "Vaccination"]);
+export function isUserEventType(type: Pick<ManagedEventType, "key">) {
+  return !reservedEventTypeKeys.has(type.key);
+}
 const Context = createContext<{
   types: ManagedEventType[];
   error: string;
@@ -193,7 +197,7 @@ export function EventTypeSettings() {
       ) : (
         <ul className="settings-label-list">
           {types
-            .filter((t) => !t.archived)
+            .filter((t) => !t.archived && isUserEventType(t))
             .map((t) => (
               <li key={t.id}>
                 <EventTypeBadge type={t.key} />

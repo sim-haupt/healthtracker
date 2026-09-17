@@ -109,14 +109,7 @@ export function EventDetail({ id }: { id: string }) {
       </Link>
       <div className="page-heading event-detail-heading">
         <div>
-          <p className="eyebrow">
-            <EventTypeBadge type={event.event_type} />
-          </p>
           <h1>{eventDisplayTitle(event)}</h1>
-          <ProfileIdentity
-            name={profile?.name ?? "Health profile"}
-            avatar={profile?.avatar}
-          />
         </div>
         <div className="event-actions">
           <Link
@@ -141,15 +134,13 @@ export function EventDetail({ id }: { id: string }) {
           </button>
         </div>
       </div>
-      <nav className="detail-jump-links" aria-label="Event sections">
-        <a href="#basic-information">Basic information</a>
-        {event.symptoms && <a href="#detail-symptoms">Symptoms</a>}
-        {event.diagnosis && <a href="#detail-diagnosis">Diagnosis</a>}
-        {event.treatment && <a href="#detail-treatment">Treatment</a>}
-        {event.prescription && <a href="#detail-prescription">Prescriptions</a>}
-        {event.notes && <a href="#detail-notes">Notes</a>}
-        <a href="#attachments-title">Attachments</a>
-      </nav>
+      {event.tags?.length ? (
+        <div className="event-labels event-detail-tags" aria-label="Tags">
+          {event.tags.map((tag) => (
+            <TagPill name={tag.name} key={tag.id} />
+          ))}
+        </div>
+      ) : null}
       <section className="card basic-information" id="basic-information">
         <div className="clinical-heading">
           <span className="state-symbol">
@@ -169,7 +160,9 @@ export function EventDetail({ id }: { id: string }) {
           </div>
           <div>
             <dt>Event type</dt>
-            <dd>{event.event_type}</dd>
+            <dd>
+              <EventTypeBadge type={event.event_type} />
+            </dd>
           </div>
           <div>
             <dt>
@@ -264,13 +257,6 @@ export function EventDetail({ id }: { id: string }) {
             </dl>
           </div>
         )}
-        {event.tags?.length ? (
-          <div className="event-labels">
-            {event.tags?.map((tag) => (
-              <TagPill name={tag.name} key={tag.id} />
-            ))}
-          </div>
-        ) : null}
       </section>
       <div className="clinical-grid">
         {[
@@ -336,7 +322,7 @@ export function EventDetail({ id }: { id: string }) {
       >
         <h2 id="delete-title">Delete event?</h2>
         <p id="delete-description">
-          This event and its attachments will be deleted.
+          This event and its documents will be deleted.
         </p>
         {deleteError && (
           <p className="form-error" role="alert">

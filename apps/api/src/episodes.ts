@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { EventDataError, type EventSummary } from "./events.js";
+import type { HealthDocument } from "./documents.js";
 import type { UserDataAccess } from "./data.js";
 export const episodeSchema = z
   .object({
@@ -10,6 +11,7 @@ export const episodeSchema = z
     end_date: z.iso.date().nullable().default(null),
     description: z.string().trim().max(5000).default(""),
     event_ids: z.array(z.uuid()).max(500).default([]),
+    document_ids: z.array(z.uuid()).max(500).default([]),
   })
   .strict()
   .refine((v) => !v.end_date || v.end_date >= v.start_date, {
@@ -21,10 +23,11 @@ export const episodeSchema = z
     status: value.end_date ? ("resolved" as const) : ("active" as const),
   }));
 export type EpisodeInput = z.output<typeof episodeSchema>;
-export type Episode = Omit<EpisodeInput, "event_ids"> & {
+export type Episode = Omit<EpisodeInput, "event_ids" | "document_ids"> & {
   id: string;
   created_at: string;
   events: EventSummary[];
+  documents: HealthDocument[];
 };
 export type EpisodeDataAccess = {
   listEpisodes: (profileId?: string) => Promise<Episode[]>;
