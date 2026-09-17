@@ -55,6 +55,7 @@ test("private attachments enforce database and Storage isolation and upload cons
         `insert into public.attachments(id,health_event_id,file_name,file_path,mime_type,file_size) values($1,$2,$3,$4,$5,$6)`,
         [id, event, name, filePath, mime, size],
       );
+    let avatarPath;
     await run(uid(1), async () => {
       await assert.rejects(
         insert(
@@ -338,9 +339,10 @@ test("private attachments enforce database and Storage isolation and upload cons
         profile,
       ]);
       const path = `${uid(1)}/${profile}/${uid(55)}`;
+      avatarPath = path;
       await db.query(
         "insert into storage.objects(bucket_id,name,metadata) values('profile-avatars',$1,$2)",
-        [path, { size: 123, mimetype: "image/png" }],
+        [path, null],
       );
       await db.query("update public.profiles set avatar=$1 where id=$2", [
         path,
@@ -370,7 +372,14 @@ test("private attachments enforce database and Storage isolation and upload cons
         null,
       );
     });
-    await run(uid(2), async () =>
+    await run(uid(2), async () => {
+      await assert.rejects(
+        db.query(
+          "insert into storage.objects(bucket_id,name,metadata) values('profile-avatars',$1,$2)",
+          [avatarPath, null],
+        ),
+        { code: "42501" },
+      );
       assert.equal(
         (
           await db.query(
@@ -378,8 +387,8 @@ test("private attachments enforce database and Storage isolation and upload cons
           )
         ).rows.length,
         0,
-      ),
-    );
+      );
+    });
     await run(uid(1), async () => {
       await db.query(
         "insert into public.providers(id,name,specialty) values($1,'Dr Test','General practice')",

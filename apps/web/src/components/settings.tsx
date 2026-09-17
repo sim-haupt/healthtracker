@@ -62,7 +62,7 @@ function ProfileEditor({
         uploaded = `${session.user.id}/${profile.id}/${crypto.randomUUID()}`;
         const result = await supabase!.storage
           .from("profile-avatars")
-          .upload(uploaded, file, {
+          .upload(uploaded, await file.arrayBuffer(), {
             contentType: file.type,
             upsert: false,
             cacheControl: "0",
