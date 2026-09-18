@@ -14,14 +14,14 @@ export type AppLocale = "en" | "de";
 const STORAGE_KEY = "healthtracker-language";
 
 const german: Record<string, string> = {
-  "Health tracker": "Gesundheitstracker",
+  "Health tracker": "Health tracker",
   Overview: "Übersicht",
   Timeline: "Zeitleiste",
   Calendar: "Kalender",
-  "Health episodes": "Gesundheitsepisoden",
+  "Health episodes": "Episoden",
   Documents: "Dokumente",
   Vaccinations: "Impfungen",
-  "Medical Providers": "Medizinische Einrichtungen",
+  "Medical Providers": "Ärzte & Praxen",
   Reminders: "Erinnerungen",
   Settings: "Einstellungen",
   "Sign out": "Abmelden",
