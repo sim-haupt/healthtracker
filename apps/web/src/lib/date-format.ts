@@ -55,4 +55,4 @@ export function formatAccessibleDate(value: string | Date) {
   if (Number.isNaN(date.getTime())) return "";
   return `${date.toLocaleDateString(currentLocale() === "de" ? "de-DE" : "en-GB", { weekday: "long" })}, ${formatDate(date)}`;
 }
-import { currentLocale } from "@/components/i18n";
+import { currentLocale } from "./locale";

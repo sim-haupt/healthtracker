@@ -20,7 +20,7 @@ import { useTrackerResults } from "./use-results";
 import { useProfiles } from "../app-shell";
 import { ProfileIdentity } from "../ui/profile-avatar";
 import { LoadingState, ErrorState } from "../ui/feedback";
-import { localeCode } from "../i18n";
+import { localeCode } from "@/lib/locale";
 import { TagPill } from "../ui/labels";
 import { formatAccessibleDate, ordinalDay } from "@/lib/date-format";
 import { CustomSelect } from "../ui/pickers";

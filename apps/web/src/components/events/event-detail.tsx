@@ -406,6 +406,47 @@ export function EventDetail({ id }: { id: string }) {
         ))}
       </div>
 
+      {event.related_symptom && (
+        <section className="card event-relations-section">
+          <div className="clinical-heading">
+            <span className="state-symbol">
+              <HeartPulse size={22} />
+            </span>
+            <h2>Related symptom</h2>
+          </div>
+          <Link
+            className="event-relation-link"
+            href={`/events/${event.related_symptom.id}`}
+          >
+            <strong>{event.related_symptom.title}</strong>
+            <span>{formatDate(event.related_symptom.event_date)}</span>
+          </Link>
+        </section>
+      )}
+
+      {event.event_type === "Symptom" && event.related_visits?.length ? (
+        <section className="card event-relations-section">
+          <div className="clinical-heading">
+            <span className="state-symbol">
+              <Stethoscope size={22} />
+            </span>
+            <h2>Related doctor visits</h2>
+          </div>
+          <div className="event-relation-list">
+            {event.related_visits.map((visit) => (
+              <Link
+                className="event-relation-link"
+                href={`/events/${visit.id}`}
+                key={visit.id}
+              >
+                <strong>{visit.title}</strong>
+                <span>{formatDate(visit.event_date)}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <EventReminders eventId={event.id} />
 
       <p className="event-updated">

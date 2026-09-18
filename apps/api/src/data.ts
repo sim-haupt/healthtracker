@@ -68,7 +68,7 @@ export function createUserDataAccess(
     if (error.code === "23503")
       throw new EventDataError(
         400,
-        "Check the selected profile and links. Events linked to an episode must keep that episode’s profile.",
+        "Check the selected profile and related records. Linked records must belong to the same health profile.",
       );
     if (error.code === "42501")
       throw new EventDataError(

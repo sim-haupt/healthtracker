@@ -847,6 +847,76 @@ test("private attachments enforce database and Storage isolation and upload cons
         0,
       );
     });
+    await run(uid(1), async () => {
+      const profiles = (
+        await db.query(
+          "select id from public.profiles order by created_at,id limit 2",
+        )
+      ).rows;
+      const symptom = (
+        await db.query("select public.save_health_event(null,$1) as result", [
+          {
+            profile_id: profiles[0].id,
+            event_type: "Symptom",
+            title: "Recurring headache",
+            event_date: "2026-09-01T08:00:00Z",
+          },
+        ])
+      ).rows[0].result;
+      const visit = (
+        await db.query("select public.save_health_event(null,$1) as result", [
+          {
+            profile_id: profiles[0].id,
+            event_type: "Doctor Visit",
+            title: "Headache consultation",
+            event_date: "2026-09-02T09:00:00Z",
+            related_symptom_id: symptom.id,
+          },
+        ])
+      ).rows[0].result;
+      assert.equal(visit.related_symptom_id, symptom.id);
+      assert.equal(visit.related_symptom.title, "Recurring headache");
+      const refreshedSymptom = (
+        await db.query("select public.health_event_document($1) as result", [
+          symptom.id,
+        ])
+      ).rows[0].result;
+      assert.deepEqual(
+        refreshedSymptom.related_visits.map((item) => item.id),
+        [visit.id],
+      );
+      await assert.rejects(
+        db.query(
+          "insert into public.health_event_relations(profile_id,source_event_id,target_event_id,relation_type) values($1,$2,$3,'visit_symptom')",
+          [profiles[0].id, symptom.id, visit.id],
+        ),
+        { code: "42501" },
+      );
+      await assert.rejects(
+        db.query("select public.save_health_event(null,$1)", [
+          {
+            profile_id: profiles[1].id,
+            event_type: "Doctor Visit",
+            title: "Wrong profile visit",
+            event_date: "2026-09-03T09:00:00Z",
+            related_symptom_id: symptom.id,
+          },
+        ]),
+        { code: "23503" },
+      );
+      await db.query("delete from public.health_events where id=$1", [
+        symptom.id,
+      ]);
+      assert.equal(
+        (
+          await db.query(
+            "select count(*) as n from public.health_event_relations where source_event_id=$1",
+            [visit.id],
+          )
+        ).rows[0].n,
+        0,
+      );
+    });
     let vaccinationId;
     await run(uid(1), async () => {
       const profile = (

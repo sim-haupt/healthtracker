@@ -29,6 +29,11 @@ const longText = z
 export const eventInputSchema = z
   .object({
     profile_id: z.uuid("Choose a valid health profile."),
+    related_symptom_id: z
+      .uuid("Choose an available symptom event.")
+      .nullable()
+      .optional()
+      .default(null),
     test_type: shortText,
     severity: z.string().trim().max(20).nullable().optional().default(null),
     trigger: longText,
@@ -156,11 +161,19 @@ export const eventInputSchema = z
 export type EventInput = z.output<typeof eventInputSchema>;
 export type Label = { id: string; name: string };
 export type HealthEvent = EventInput & {
+  related_symptom?: EventRelationSummary | null;
+  related_visits?: EventRelationSummary[];
   category?: Label | null;
   tags?: Label[];
   id: string;
   created_at: string;
   updated_at: string;
+};
+export type EventRelationSummary = {
+  id: string;
+  title: string;
+  event_type: string;
+  event_date: string;
 };
 export type EventSummary = Pick<
   HealthEvent,

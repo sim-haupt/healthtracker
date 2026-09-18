@@ -14,11 +14,12 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Search,
   X,
 } from "lucide-react";
 import { dayKey, monthDays, parseDay } from "@/lib/tracker";
 import { formatDate, formatDateTime } from "@/lib/date-format";
-import { localeCode } from "../i18n";
+import { localeCode } from "@/lib/locale";
 
 export type PickerOption = {
   value: string;
@@ -144,6 +145,121 @@ export function CustomSelect({
               </button>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function SearchableSelect({
+  id,
+  value,
+  options,
+  onChange,
+  disabled = false,
+  placeholder = "Select…",
+  searchPlaceholder = "Search…",
+  emptyText = "No matching options.",
+  invalid = false,
+}: {
+  id: string;
+  value: string;
+  options: PickerOption[];
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  searchPlaceholder?: string;
+  emptyText?: string;
+  invalid?: boolean;
+}) {
+  const root = useRef<HTMLDivElement>(null);
+  const search = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const selected = options.find((option) => option.value === value);
+  const visible = options.filter(
+    (option) =>
+      !query.trim() ||
+      option.label
+        .toLocaleLowerCase()
+        .includes(query.trim().toLocaleLowerCase()),
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    requestAnimationFrame(() => search.current?.focus());
+    return () => document.removeEventListener("pointerdown", close);
+  }, [open]);
+
+  return (
+    <div className="custom-select searchable-select" ref={root}>
+      <button
+        id={id}
+        type="button"
+        className="custom-select-trigger"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-invalid={invalid || undefined}
+        disabled={disabled}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span>{selected?.label ?? placeholder}</span>
+        <ChevronDown size={16} aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="custom-select-menu searchable-select-menu">
+          <div className="filter-bar-search searchable-select-search">
+            <Search size={16} aria-hidden="true" />
+            <input
+              ref={search}
+              type="search"
+              value={query}
+              placeholder={searchPlaceholder}
+              aria-label={searchPlaceholder}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setOpen(false);
+              }}
+            />
+            {query && (
+              <button
+                type="button"
+                className="search-clear-button"
+                aria-label="Clear search"
+                onClick={() => setQuery("")}
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            )}
+          </div>
+          <div role="listbox" aria-labelledby={id}>
+            {visible.map((option) => {
+              const isSelected = option.value === value;
+              return (
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  disabled={option.disabled}
+                  className={isSelected ? "selected" : ""}
+                  key={option.value}
+                  onClick={() => {
+                    onChange(option.value);
+                    setQuery("");
+                    setOpen(false);
+                  }}
+                >
+                  <span>{option.content ?? option.label}</span>
+                  {isSelected && <Check size={15} aria-hidden="true" />}
+                </button>
+              );
+            })}
+            {!visible.length && <p className="select-empty">{emptyText}</p>}
+          </div>
         </div>
       )}
     </div>

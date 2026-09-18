@@ -86,4 +86,4 @@ export function groupTimeline(items: TimelineItem[]) {
   }
   return years;
 }
-import { localeCode } from "@/components/i18n";
+import { localeCode } from "./locale";

@@ -5586,6 +5586,77 @@ h3 {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.searchable-select-menu {
+  display: grid;
+  gap: 5px;
+  width: max(100%, 360px);
+  max-height: 340px;
+  overflow: hidden;
+}
+.searchable-select-search {
+  margin: 0;
+}
+.searchable-select-menu > [role="listbox"] {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.searchable-select-menu > [role="listbox"] > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+}
+.searchable-select-menu > [role="listbox"] > button:hover,
+.searchable-select-menu > [role="listbox"] > button.selected {
+  background: var(--surface-tint);
+}
+.searchable-select-menu > [role="listbox"] > button.selected {
+  color: var(--teal);
+  font-weight: 600;
+}
+.select-empty {
+  padding: 12px 10px;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.event-relations-section {
+  margin-top: 20px;
+  padding: 28px;
+}
+.event-relation-list {
+  display: grid;
+  gap: 10px;
+}
+.event-relation-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-tint);
+  color: var(--ink);
+}
+.event-relation-link:hover {
+  border-color: var(--control-border);
+}
+.event-relation-link span {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
 .date-picker-popover {
   position: absolute;
   z-index: 80;

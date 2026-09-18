@@ -8,8 +8,9 @@ import {
   useMemo,
   useState,
 } from "react";
+import type { AppLocale } from "@/lib/locale";
 
-export type AppLocale = "en" | "de";
+export type { AppLocale } from "@/lib/locale";
 
 const STORAGE_KEY = "healthtracker-language";
 
@@ -196,6 +197,13 @@ const german: Record<string, string> = {
   Severity: "Schweregrad",
   Frequency: "Häufigkeit",
   Symptoms: "Symptome",
+  "Related symptom": "Zugehöriges Symptom",
+  "Related doctor visits": "Zugehörige Arztbesuche",
+  "Select symptom": "Symptom auswählen",
+  "Search symptoms…": "Symptome suchen…",
+  "Loading symptoms…": "Symptome werden geladen…",
+  "No linked symptom": "Kein verknüpftes Symptom",
+  "No symptom events found.": "Keine Symptom-Ereignisse gefunden.",
   "Other Symptoms": "Weitere Symptome",
   "Other symptoms": "Weitere Symptome",
   Diagnosis: "Diagnose",
@@ -440,6 +448,8 @@ const german: Record<string, string> = {
 
   "Please check the highlighted fields.":
     "Bitte prüfen Sie die markierten Felder.",
+  "Check the selected profile and related records. Linked records must belong to the same health profile.":
+    "Prüfen Sie das ausgewählte Profil und die verknüpften Einträge. Verknüpfte Einträge müssen zum selben Gesundheitsprofil gehören.",
   "Enter a title.": "Geben Sie einen Titel ein.",
   "Choose a severity.": "Wählen Sie einen Schweregrad.",
   "Choose a severity from 1 to 5.": "Wählen Sie einen Schweregrad von 1 bis 5.",
@@ -655,14 +665,4 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
       </button>
     </div>
   );
-}
-
-export function currentLocale(): AppLocale {
-  if (typeof document !== "undefined" && document.documentElement.lang === "de")
-    return "de";
-  return "en";
-}
-
-export function localeCode() {
-  return currentLocale() === "de" ? "de-DE" : "en-GB";
 }

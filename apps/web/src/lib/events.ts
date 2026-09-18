@@ -21,6 +21,9 @@ export type DetailField =
   | "notes";
 export type Label = { id: string; name: string };
 export type HealthEvent = {
+  related_symptom_id?: string | null;
+  related_symptom?: EventRelationSummary | null;
+  related_visits?: EventRelationSummary[];
   test_type?: string | null;
   severity?: string | null;
   trigger?: string | null;
@@ -59,9 +62,22 @@ export type HealthEvent = {
   created_at: string;
   updated_at: string;
 };
+export type EventRelationSummary = {
+  id: string;
+  title: string;
+  event_type: string;
+  event_date: string;
+};
 export type EventInput = Omit<
   HealthEvent,
-  "id" | "created_at" | "updated_at" | "category" | "tags" | "provider"
+  | "id"
+  | "created_at"
+  | "updated_at"
+  | "category"
+  | "tags"
+  | "provider"
+  | "related_symptom"
+  | "related_visits"
 >;
 export function eventDisplayTitle(
   event: Pick<HealthEvent, "event_type" | "title" | "disease">,
@@ -183,6 +199,7 @@ export function eventDraft(
   initialDate?: string,
 ): EventDraft {
   return {
+    related_symptom_id: event?.related_symptom_id ?? "",
     test_type: event?.test_type ?? "",
     severity: event?.severity ?? "",
     trigger: event?.trigger ?? "",
@@ -318,6 +335,10 @@ export function draftInput(
     localDateTime(new Date().toISOString());
   return {
     ...draft,
+    related_symptom_id:
+      draft.event_type === "Doctor Visit"
+        ? draft.related_symptom_id || null
+        : null,
     test_type: draft.test_type?.trim() || null,
     severity: draft.severity || null,
     trigger: draft.trigger?.trim() || null,

@@ -21,6 +21,7 @@ import { apiFetch, ApiError } from "@/lib/api";
 import {
   fieldLabel,
   fieldsForType,
+  eventDisplayTitle,
   eventDraft,
   validateDraft,
   draftInput,
@@ -38,7 +39,7 @@ import { ProviderEditor } from "../providers";
 import type { Provider } from "@/lib/providers";
 import { EventLabelEditor } from "../tracker/event-label-editor";
 import { useToast, ConfirmDialog } from "../ui/feedback";
-import { CustomSelect, DatePicker } from "../ui/pickers";
+import { CustomSelect, DatePicker, SearchableSelect } from "../ui/pickers";
 import { ProfileIdentity } from "../ui/profile-avatar";
 import { RichTextEditor } from "../ui/rich-text";
 import { useEvent } from "./use-event";
@@ -48,6 +49,7 @@ import {
   uploadPendingDocument,
   type EventDocumentSelection,
 } from "./pending-document";
+import { useTrackerResults, type EventResults } from "../tracker/use-results";
 
 type EpisodeOption = {
   id: string;
@@ -198,6 +200,19 @@ export function EventForm({
     ...preferredFields.filter((field) => medicalFields.includes(field)),
     ...medicalFields.filter((field) => !preferredFields.includes(field)),
   ];
+  const symptomOptions = useTrackerResults<EventResults>(
+    "/api/v1/events/search",
+    {
+      profile_id: draft.profile_id,
+      event_type: "Symptom",
+      page: 1,
+      page_size: 100,
+    },
+    {
+      empty: type !== "Doctor Visit" || !draft.profile_id,
+      allPages: true,
+    },
+  );
 
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -668,6 +683,7 @@ export function EventForm({
                         checked={draft.profile_id === profile.id}
                         onChange={(choice) => {
                           update("profile_id", choice.target.value);
+                          update("related_symptom_id", "");
                           setEpisodeId("");
                           setPendingDocument(null);
                         }}
@@ -1217,7 +1233,53 @@ export function EventForm({
               {type !== "Vaccination" && (
                 <FormSection number={3} title="Medical information">
                   <div className="event-section-grid event-medical-grid">
-                    {orderedMedicalFields.map((field) => longField(field))}
+                    {orderedMedicalFields.map((field) =>
+                      type === "Doctor Visit" && field === "symptoms" ? (
+                        <div className="form-field" key={field}>
+                          <label htmlFor="related_symptom_id">Symptom</label>
+                          <SearchableSelect
+                            id="related_symptom_id"
+                            value={draft.related_symptom_id ?? ""}
+                            disabled={!symptomOptions.data}
+                            invalid={!!errors.related_symptom_id}
+                            placeholder={
+                              symptomOptions.data
+                                ? "Select symptom"
+                                : "Loading symptoms…"
+                            }
+                            searchPlaceholder="Search symptoms…"
+                            emptyText="No symptom events found."
+                            onChange={(value) =>
+                              update("related_symptom_id", value)
+                            }
+                            options={[
+                              { value: "", label: "No linked symptom" },
+                              ...(symptomOptions.data?.events ?? []).map(
+                                (symptom) => ({
+                                  value: symptom.id,
+                                  label: `${eventDisplayTitle(symptom)} · ${formatDate(symptom.event_date)}`,
+                                }),
+                              ),
+                            ]}
+                          />
+                          {feedback("related_symptom_id")}
+                          {symptomOptions.error && (
+                            <p className="field-error" role="alert">
+                              {symptomOptions.error}{" "}
+                              <button
+                                type="button"
+                                className="text-link"
+                                onClick={symptomOptions.retry}
+                              >
+                                Retry
+                              </button>
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        longField(field)
+                      ),
+                    )}
                   </div>
                 </FormSection>
               )}
