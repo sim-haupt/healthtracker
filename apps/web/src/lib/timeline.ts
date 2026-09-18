@@ -72,7 +72,7 @@ export function groupTimeline(items: TimelineItem[]) {
     if (!month) {
       month = {
         key: monthKey,
-        label: date.toLocaleDateString(undefined, { month: "long" }),
+        label: date.toLocaleDateString(localeCode(), { month: "long" }),
         days: [],
       };
       year.months.push(month);
@@ -86,3 +86,4 @@ export function groupTimeline(items: TimelineItem[]) {
   }
   return years;
 }
+import { localeCode } from "@/components/i18n";

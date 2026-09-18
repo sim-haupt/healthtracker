@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { dayKey, monthDays, parseDay } from "@/lib/tracker";
 import { formatDate, formatDateTime } from "@/lib/date-format";
+import { localeCode } from "../i18n";
 
 export type PickerOption = {
   value: string;
@@ -251,7 +252,7 @@ export function DatePicker({
               <ChevronLeft size={17} />
             </button>
             <strong>
-              {month.toLocaleDateString("en-GB", {
+              {month.toLocaleDateString(localeCode(), {
                 month: "long",
                 year: "numeric",
               })}

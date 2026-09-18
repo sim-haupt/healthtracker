@@ -32,6 +32,8 @@ export function ordinalDay(day: number) {
 export function formatDate(value: string | Date) {
   const date = parsedDate(value);
   if (Number.isNaN(date.getTime())) return "";
+  if (currentLocale() === "de")
+    return `${date.getDate()}. ${date.toLocaleDateString("de-DE", { month: "short" }).replace(".", "")} ${date.getFullYear()}`;
   const month = shortMonths[date.getMonth()];
   return `${ordinalDay(date.getDate())} ${month} ${date.getFullYear()}`;
 }
@@ -39,14 +41,18 @@ export function formatDate(value: string | Date) {
 export function formatDateTime(value: string | Date) {
   const date = parsedDate(value);
   if (Number.isNaN(date.getTime())) return "";
-  return `${formatDate(date)}, ${date.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-  })}`;
+  return `${formatDate(date)}, ${date.toLocaleTimeString(
+    currentLocale() === "de" ? "de-DE" : "en-GB",
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+  )}`;
 }
 
 export function formatAccessibleDate(value: string | Date) {
   const date = parsedDate(value);
   if (Number.isNaN(date.getTime())) return "";
-  return `${date.toLocaleDateString("en-GB", { weekday: "long" })}, ${formatDate(date)}`;
+  return `${date.toLocaleDateString(currentLocale() === "de" ? "de-DE" : "en-GB", { weekday: "long" })}, ${formatDate(date)}`;
 }
+import { currentLocale } from "@/components/i18n";

@@ -20,6 +20,7 @@ import { useTrackerResults } from "./use-results";
 import { useProfiles } from "../app-shell";
 import { ProfileIdentity } from "../ui/profile-avatar";
 import { LoadingState, ErrorState } from "../ui/feedback";
+import { localeCode } from "../i18n";
 import { TagPill } from "../ui/labels";
 import { formatAccessibleDate, ordinalDay } from "@/lib/date-format";
 import { CustomSelect } from "../ui/pickers";
@@ -52,9 +53,7 @@ function TimelineEntry({ item }: { item: TimelineItem }) {
       <Link
         className="card timeline-entry"
         href={
-          episode
-            ? `/episodes/${item.event_id}`
-            : `/events/${item.event_id}`
+          episode ? `/episodes/${item.event_id}` : `/events/${item.event_id}`
         }
       >
         <div className="timeline-entry-top">
@@ -66,7 +65,7 @@ function TimelineEntry({ item }: { item: TimelineItem }) {
           <time dateTime={item.occurred_at}>
             {episode
               ? "Episode"
-              : new Date(item.occurred_at).toLocaleTimeString(undefined, {
+              : new Date(item.occurred_at).toLocaleTimeString(localeCode(), {
                   hour: "2-digit",
                   minute: "2-digit",
                 })}
@@ -100,22 +99,36 @@ function TimelineGroups({ items }: { items: TimelineItem[] }) {
   return (
     <div className="health-timeline">
       {groupTimeline(items).map((year) => (
-        <section className="timeline-year" key={year.year} aria-label={String(year.year)}>
+        <section
+          className="timeline-year"
+          key={year.year}
+          aria-label={String(year.year)}
+        >
           <h2 className="timeline-year-heading">{year.year}</h2>
           {year.months.map((month) => (
             <section className="timeline-month" key={month.key}>
-              <h3 className="timeline-month-heading">{month.label} <span>{year.year}</span></h3>
+              <h3 className="timeline-month-heading">
+                {month.label} <span>{year.year}</span>
+              </h3>
               {month.days.map((day) => (
                 <div className="timeline-day" key={day.key}>
                   <div className="timeline-day-label">
                     <time dateTime={day.date.toISOString()}>
                       <strong>{ordinalDay(day.date.getDate())}</strong>
-                      <span>{day.date.toLocaleDateString(undefined, { weekday: "short" })}</span>
+                      <span>
+                        {day.date.toLocaleDateString(localeCode(), {
+                          weekday: "short",
+                        })}
+                      </span>
                     </time>
-                    <span className="sr-only">{formatAccessibleDate(day.date)}</span>
+                    <span className="sr-only">
+                      {formatAccessibleDate(day.date)}
+                    </span>
                   </div>
                   <ol className="timeline-day-items">
-                    {day.items.map((item) => <TimelineEntry key={item.id} item={item} />)}
+                    {day.items.map((item) => (
+                      <TimelineEntry key={item.id} item={item} />
+                    ))}
                   </ol>
                 </div>
               ))}
@@ -172,7 +185,12 @@ function TimelineContent({
         {data.total} {data.total === 1 ? "entry" : "entries"} · Newest first ·
         Dates in your local timezone
       </div>
-      <ProfileColumns items={data.items} profileId={(item) => item.profile_id} noun="entry" className="timeline-profile-columns">
+      <ProfileColumns
+        items={data.items}
+        profileId={(item) => item.profile_id}
+        noun="entry"
+        className="timeline-profile-columns"
+      >
         {(items) => <TimelineGroups items={items} />}
       </ProfileColumns>
       <div className="card events-pagination">

@@ -30,6 +30,7 @@ import { TrackerProvider } from "./tracker/context";
 import { supabase } from "@/lib/supabase";
 import { clearApiCache } from "@/lib/api";
 import { preloadWorkspaceData } from "@/lib/preload";
+import { LanguageSwitcher, useLanguage } from "./i18n";
 export type HealthProfile = {
   id: string;
   name: string;
@@ -113,6 +114,7 @@ export function AppShell({
   userId: string;
   initialProfiles: HealthProfile[];
 }) {
+  const { locale } = useLanguage();
   const pathname = usePathname();
   const router = useRouter();
   const [ready, setReady] = useState(initialProfiles.length > 0);
@@ -246,7 +248,7 @@ export function AppShell({
       }}
     >
       <ToastProvider>
-        <RouteDataProviders pathname={pathname}>
+        <RouteDataProviders key={locale} pathname={pathname}>
           <div className="app-shell">
             <a className="skip-link" href="#main">
               Skip to content
@@ -299,6 +301,9 @@ export function AppShell({
                 ))}
               </nav>
               <div className="sidebar-bottom">
+                <div className="sidebar-language-switcher">
+                  <LanguageSwitcher />
+                </div>
                 <button className="nav-item sign-out" onClick={signOut}>
                   <LogOut size={19} />
                   Sign out
@@ -328,6 +333,7 @@ export function AppShell({
                   </strong>
                 </div>
                 <div className="profile-control">
+                  <LanguageSwitcher compact />
                   {activeProfile ? (
                     <ProfileAvatar
                       name={activeProfile.name}

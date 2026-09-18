@@ -4,11 +4,13 @@ import { useState, type FormEvent } from "react";
 import { ArrowRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { apiFetch } from "@/lib/api";
+import { LanguageSwitcher, useLanguage } from "./i18n";
 export function LoginForm({
   accessUnavailable,
 }: {
   accessUnavailable: boolean;
 }) {
+  useLanguage();
   const [error, setError] = useState(
     accessUnavailable
       ? "Access is unavailable. Ask the workspace owner to check your account approval, or sign in again."
@@ -47,6 +49,9 @@ export function LoginForm({
   }
   return (
     <main className="login-page">
+      <div className="login-language-switcher">
+        <LanguageSwitcher />
+      </div>
       <section className="login-form-area">
         <div className="login-form">
           <h1>Health tracker</h1>

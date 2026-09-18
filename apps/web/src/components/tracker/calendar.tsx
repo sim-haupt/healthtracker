@@ -16,6 +16,7 @@ import { TrackerFiltersBar, useTrackerQuery } from "./filters";
 import { useTrackerResults, type EventResults } from "./use-results";
 import { EventRows } from "./event-rows";
 import { formatAccessibleDate, formatDate } from "@/lib/date-format";
+import { localeCode } from "../i18n";
 import { eventDisplayTitle } from "@/lib/events";
 import { useProfiles } from "../app-shell";
 import { ProfileAvatar } from "../ui/profile-avatar";
@@ -52,7 +53,7 @@ export function HealthCalendar() {
     setMonth(next);
     setSelected(dayKey(next));
   }
-  const title = month.toLocaleDateString(undefined, {
+  const title = month.toLocaleDateString(localeCode(), {
     month: "long",
     year: "numeric",
   });
