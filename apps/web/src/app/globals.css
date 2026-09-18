@@ -5167,6 +5167,10 @@ h3 {
   background: white;
   cursor: pointer;
 }
+.profile-choices > label:not(.selected) {
+  background: white;
+  color: var(--ink);
+}
 .profile-choices > label.selected {
   border-color: var(--deep);
   background: var(--deep);
