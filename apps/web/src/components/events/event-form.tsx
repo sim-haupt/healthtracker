@@ -850,6 +850,7 @@ export function EventForm({
                   />
                   {feedback("trigger")}
                 </div>
+                {longField("treatment", "Treatment")}
               </div>
             </FormSection>
           ) : type === "Injury" ? (

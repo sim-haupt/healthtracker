@@ -83,6 +83,7 @@ function detailSections(event: HealthEvent): DetailSection[] {
       { field: "severity", title: "Severity", icon: HeartPulse },
       { field: "frequency", title: "Frequency", icon: ClipboardCheck },
       { field: "trigger", title: "Possible trigger", icon: FileText },
+      { field: "treatment", title: "Treatment", icon: Stethoscope },
     ],
     Migraine: [
       { field: "severity", title: "Severity", icon: HeartPulse },
