@@ -20,10 +20,120 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Pencil, Trash2, CalendarDays } from "lucide-react";
 import { apiFetch, ApiError } from "@/lib/api";
 import { dateLabel, eventDisplayTitle, fieldLabel } from "@/lib/events";
+import type { HealthEvent } from "@/lib/events";
 import { formatDate } from "@/lib/date-format";
 import { useProfiles } from "../app-shell";
 import { useEvent } from "./use-event";
 import type { Reminder } from "@/lib/reminders";
+
+type DetailSection = {
+  field: keyof HealthEvent;
+  title: string;
+  icon: typeof FileText;
+};
+
+function detailSections(event: HealthEvent): DetailSection[] {
+  const byType: Record<string, DetailSection[]> = {
+    "Doctor Visit": [
+      { field: "description", title: "Reason for visit", icon: FileText },
+      { field: "treatment", title: "What was done", icon: Stethoscope },
+      { field: "diagnosis", title: "Diagnosis", icon: ClipboardCheck },
+      { field: "prescription", title: "Prescription", icon: Pill },
+      { field: "symptoms", title: "Symptoms", icon: HeartPulse },
+    ],
+    Illness: [
+      {
+        field: "diagnosis",
+        title: "Illness / condition",
+        icon: ClipboardCheck,
+      },
+      { field: "severity", title: "Severity", icon: HeartPulse },
+      { field: "symptoms", title: "Symptoms", icon: HeartPulse },
+      { field: "treatment", title: "Medication / treatment", icon: Pill },
+    ],
+    "Examination / Test": [
+      {
+        field: "test_type",
+        title: "Test / examination type",
+        icon: ClipboardCheck,
+      },
+      { field: "description", title: "Reason for test", icon: FileText },
+      { field: "diagnosis", title: "Results / findings", icon: ClipboardCheck },
+      {
+        field: "treatment",
+        title: "Follow-up / next steps",
+        icon: Stethoscope,
+      },
+    ],
+    Injury: [
+      { field: "injury_type", title: "Injury type", icon: HeartPulse },
+      { field: "body_area", title: "Body area", icon: HeartPulse },
+      {
+        field: "description",
+        title: "Cause / how it happened",
+        icon: FileText,
+      },
+      { field: "severity", title: "Severity", icon: HeartPulse },
+      { field: "treatment", title: "Treatment", icon: Stethoscope },
+      { field: "recovery", title: "Recovery", icon: ClipboardCheck },
+    ],
+    Symptom: [
+      { field: "symptoms", title: "Symptom", icon: HeartPulse },
+      { field: "body_area", title: "Body area", icon: HeartPulse },
+      { field: "severity", title: "Severity", icon: HeartPulse },
+      { field: "frequency", title: "Frequency", icon: ClipboardCheck },
+      { field: "trigger", title: "Possible trigger", icon: FileText },
+    ],
+    Migraine: [
+      { field: "severity", title: "Severity", icon: HeartPulse },
+      { field: "symptoms", title: "Other symptoms", icon: HeartPulse },
+      { field: "trigger", title: "Possible trigger", icon: FileText },
+      { field: "treatment", title: "Medication / treatment", icon: Pill },
+      {
+        field: "relief",
+        title: "Effectiveness / relief",
+        icon: ClipboardCheck,
+      },
+    ],
+    Other: [
+      { field: "description", title: "Description", icon: FileText },
+      { field: "action", title: "Action", icon: ClipboardCheck },
+    ],
+    Medication: [
+      { field: "prescription", title: "Medication and dose", icon: Pill },
+      { field: "description", title: "Reason for taking it", icon: FileText },
+    ],
+    Vaccination: [
+      {
+        field: "description",
+        title: "Vaccine and dose details",
+        icon: FileText,
+      },
+    ],
+  };
+
+  const sections = byType[event.event_type] ?? [
+    {
+      field: "description" as const,
+      title: fieldLabel(event.event_type, "description"),
+      icon: FileText,
+    },
+    { field: "symptoms" as const, title: "Symptoms", icon: HeartPulse },
+    { field: "diagnosis" as const, title: "Diagnosis", icon: ClipboardCheck },
+    { field: "treatment" as const, title: "Treatment", icon: Stethoscope },
+    { field: "prescription" as const, title: "Prescription", icon: Pill },
+  ];
+
+  const withNotes: DetailSection[] = [
+    ...sections,
+    { field: "notes", title: "Notes", icon: NotebookPen },
+  ];
+
+  return withNotes.filter(({ field }) => {
+    const value = event[field];
+    return typeof value === "string" ? Boolean(value.trim()) : value != null;
+  });
+}
 
 function EventReminders({ eventId }: { eventId: string }) {
   const [reminders, setReminders] = useState<Reminder[]>();
@@ -32,25 +142,41 @@ function EventReminders({ eventId }: { eventId: string }) {
     apiFetch<{ reminders: Reminder[] }>(
       `/api/v1/reminders?source_event_id=${eventId}&page_size=20`,
       controller.signal,
-    ).then((result) => setReminders(result.reminders)).catch(() => {});
+    )
+      .then((result) => setReminders(result.reminders))
+      .catch(() => {});
     return () => controller.abort();
   }, [eventId]);
   if (!reminders?.length) return null;
   return (
-    <section className="clinical-section event-reminder-detail" id="event-reminders">
+    <section
+      className="clinical-section event-reminder-detail"
+      id="event-reminders"
+    >
       <div className="clinical-heading">
-        <span className="state-symbol"><Bell size={22} /></span>
+        <span className="state-symbol">
+          <Bell size={22} />
+        </span>
         <h2>Reminders</h2>
       </div>
       <ul>
         {reminders.map((reminder) => (
           <li key={reminder.id}>
-            <div><strong>{reminder.title}</strong><time dateTime={reminder.due_date}>{formatDate(reminder.due_date)}</time></div>
-            <span className={`reminder-status-pill ${reminder.status}`}>{reminder.status}</span>
+            <div>
+              <strong>{reminder.title}</strong>
+              <time dateTime={reminder.due_date}>
+                {formatDate(reminder.due_date)}
+              </time>
+            </div>
+            <span className={`reminder-status-pill ${reminder.status}`}>
+              {reminder.status}
+            </span>
           </li>
         ))}
       </ul>
-      <Link className="text-link" href="/reminders">View reminders</Link>
+      <Link className="text-link" href="/reminders">
+        View reminders
+      </Link>
     </section>
   );
 }
@@ -186,7 +312,11 @@ export function EventDetail({ id }: { id: string }) {
           )}
           {(event.provider || event.doctor) && (
             <div>
-              <dt>Doctor</dt>
+              <dt>
+                {event.event_type === "Examination / Test"
+                  ? "Medical provider / facility"
+                  : "Medical provider"}
+              </dt>
               <dd>
                 {event.provider ? (
                   <Link
@@ -259,46 +389,21 @@ export function EventDetail({ id }: { id: string }) {
         )}
       </section>
       <div className="clinical-grid">
-        {[
-          {
-            field: "description" as const,
-            title: fieldLabel(event.event_type, "description"),
-            icon: FileText,
-          },
-          { field: "symptoms" as const, title: "Symptoms", icon: HeartPulse },
-          {
-            field: "diagnosis" as const,
-            title: "Diagnosis",
-            icon: ClipboardCheck,
-          },
-          {
-            field: "treatment" as const,
-            title: "Treatment",
-            icon: Stethoscope,
-          },
-          {
-            field: "prescription" as const,
-            title: "Prescriptions",
-            icon: Pill,
-          },
-          { field: "notes" as const, title: "Notes", icon: NotebookPen },
-        ]
-          .filter((section) => event[section.field])
-          .map(({ field, title, icon: Icon }) => (
-            <section
-              className={`clinical-section clinical-${field}`}
-              id={`detail-${field}`}
-              key={field}
-            >
-              <div className="clinical-heading">
-                <span className="state-symbol">
-                  <Icon size={22} />
-                </span>
-                <h2>{title}</h2>
-              </div>
-              <RichTextContent value={String(event[field])} />
-            </section>
-          ))}
+        {detailSections(event).map(({ field, title, icon: Icon }) => (
+          <section
+            className={`clinical-section clinical-${field}`}
+            id={`detail-${field}`}
+            key={field}
+          >
+            <div className="clinical-heading">
+              <span className="state-symbol">
+                <Icon size={22} />
+              </span>
+              <h2>{title}</h2>
+            </div>
+            <RichTextContent value={String(event[field])} />
+          </section>
+        ))}
       </div>
 
       <EventReminders eventId={event.id} />
