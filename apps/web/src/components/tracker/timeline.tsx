@@ -14,12 +14,9 @@ import {
   Bandage,
   Activity,
   ArrowUpRight,
-  Link2,
 } from "lucide-react";
 import { TrackerFiltersBar, useTrackerQuery } from "./filters";
 import { useTrackerResults } from "./use-results";
-import { useProfiles } from "../app-shell";
-import { ProfileIdentity } from "../ui/profile-avatar";
 import { LoadingState, ErrorState } from "../ui/feedback";
 import { localeCode } from "@/lib/locale";
 import { formatAccessibleDate, ordinalDay } from "@/lib/date-format";
@@ -41,8 +38,6 @@ const icons: Record<string, typeof Activity> = {
   Other: Activity,
 };
 function TimelineEntry({ item }: { item: TimelineItem }) {
-  const { profiles } = useProfiles();
-  const profile = profiles.find((p) => p.id === item.profile_id);
   const episode = item.entry_type === "episode";
   const Icon = episode ? Layers : (icons[item.event_type] ?? Activity);
   return (
@@ -57,11 +52,6 @@ function TimelineEntry({ item }: { item: TimelineItem }) {
         }
       >
         <div className="timeline-entry-top">
-          <ProfileIdentity
-            className="timeline-person"
-            name={profile?.name ?? "Health profile"}
-            avatar={profile?.avatar}
-          />
           <time dateTime={item.occurred_at}>
             {episode
               ? "Episode"
@@ -87,7 +77,7 @@ function TimelineEntry({ item }: { item: TimelineItem }) {
           title="View related doctor visit"
           onClick={(event) => event.stopPropagation()}
         >
-          <Link2 size={15} aria-hidden="true" />
+          <Stethoscope size={15} aria-hidden="true" />
         </Link>
       )}
     </li>
