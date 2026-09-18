@@ -14,6 +14,7 @@ import {
   Bandage,
   Activity,
   ArrowUpRight,
+  Link2,
 } from "lucide-react";
 import { TrackerFiltersBar, useTrackerQuery } from "./filters";
 import { useTrackerResults } from "./use-results";
@@ -78,6 +79,17 @@ function TimelineEntry({ item }: { item: TimelineItem }) {
           <ArrowUpRight size={17} aria-hidden />
         </h3>
       </Link>
+      {item.related_event_id && (
+        <Link
+          className="timeline-related-link"
+          href={`/events/${item.related_event_id}`}
+          aria-label="View related doctor visit"
+          title="View related doctor visit"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <Link2 size={15} aria-hidden="true" />
+        </Link>
+      )}
     </li>
   );
 }

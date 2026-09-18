@@ -243,6 +243,7 @@ export type TimelineItem = {
   event_title: string;
   occurred_at: string;
   summary: string;
+  related_event_id?: string | null;
   tags: Label[];
   category: Label | null;
 };

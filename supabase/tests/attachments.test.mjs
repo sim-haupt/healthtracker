@@ -885,6 +885,17 @@ test("private attachments enforce database and Storage isolation and upload cons
         refreshedSymptom.related_visits.map((item) => item.id),
         [visit.id],
       );
+      const timeline = (
+        await db.query(
+          "select public.health_timeline($1::jsonb,'event') as result",
+          [{ profile_id: profiles[0].id }],
+        )
+      ).rows[0].result;
+      assert.equal(
+        timeline.items.find((item) => item.id === `event:${symptom.id}`)
+          .related_event_id,
+        visit.id,
+      );
       await assert.rejects(
         db.query(
           "insert into public.health_event_relations(profile_id,source_event_id,target_event_id,relation_type) values($1,$2,$3,'visit_symptom')",

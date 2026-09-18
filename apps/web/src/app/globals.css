@@ -3867,6 +3867,23 @@ select:disabled {
   color: var(--teal);
   margin-top: 4px;
 }
+.timeline-related-link {
+  position: absolute;
+  top: 58px;
+  right: 24px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface-tint);
+  color: var(--teal);
+}
+.timeline-related-link:hover {
+  border-color: var(--control-border);
+  background: white;
+}
 .timeline-summary {
   font-size: 0.9rem;
   line-height: 1.65;
