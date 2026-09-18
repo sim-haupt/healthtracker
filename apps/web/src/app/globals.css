@@ -3850,7 +3850,7 @@ select:disabled {
   white-space: nowrap;
 }
 .timeline-kind {
-  margin: 15px 0 6px;
+  margin: 0 0 12px;
   color: var(--muted);
   font-size: 0.75rem;
 }

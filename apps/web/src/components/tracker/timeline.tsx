@@ -51,16 +51,6 @@ function TimelineEntry({ item }: { item: TimelineItem }) {
           episode ? `/episodes/${item.event_id}` : `/events/${item.event_id}`
         }
       >
-        <div className="timeline-entry-top">
-          <time dateTime={item.occurred_at}>
-            {episode
-              ? "Episode"
-              : new Date(item.occurred_at).toLocaleTimeString(localeCode(), {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-          </time>
-        </div>
         <div className="timeline-kind">
           <EventTypeBadge type={item.event_type} />
         </div>
