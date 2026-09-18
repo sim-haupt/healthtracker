@@ -5168,8 +5168,12 @@ h3 {
   cursor: pointer;
 }
 .profile-choices > label.selected {
-  border-color: var(--accent);
-  background: var(--surface-tint);
+  border-color: var(--deep);
+  background: var(--deep);
+  color: white;
+}
+.profile-choices > label.selected .profile-identity {
+  color: white;
 }
 .profile-choices input {
   position: absolute;
