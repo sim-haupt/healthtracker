@@ -2544,7 +2544,7 @@ h3 {
 
 /* Medical provider directory */
 .settings-grid.provider-directory {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 @media (max-width: 1200px) {
