@@ -326,9 +326,6 @@ export function ProviderDirectory() {
                     <h2>{provider.name}</h2>
                     <p>{provider.specialty || "Healthcare provider"}</p>
                     <ProviderRating value={provider.rating} readOnly />
-                    {provider.address && (
-                      <span className="muted">{provider.address}</span>
-                    )}
                   </div>
                   <ArrowUpRight size={19} />
                 </Link>
