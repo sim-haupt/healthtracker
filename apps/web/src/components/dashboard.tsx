@@ -86,7 +86,6 @@ function ActiveEpisodes({
       {episodes.slice(0, 3).map((episode) => (
         <li key={episode.id}>
           <Link href={"/episodes/" + episode.id}>
-            <span className="status-pill episode-status-active">Active</span>
             <strong>{episode.title}</strong>
             <span>
               Since{" "}
