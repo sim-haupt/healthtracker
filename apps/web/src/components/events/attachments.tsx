@@ -178,7 +178,9 @@ export function EventAttachments({
       .catch((cause) => {
         if (active) {
           setError(
-            cause instanceof Error ? cause.message : "Unable to load documents.",
+            cause instanceof Error
+              ? cause.message
+              : "Unable to load documents.",
           );
         }
       })
@@ -190,6 +192,10 @@ export function EventAttachments({
       controller.abort();
     };
   }, [base]);
+
+  // Keep the page clean when the event has no linked documents. An error still
+  // renders the section so the user can retry the document lookup.
+  if (!loading && !items.length && !error) return null;
 
   return (
     <section
@@ -219,9 +225,7 @@ export function EventAttachments({
             <AttachmentItem key={item.id} item={item} />
           ))}
         </ul>
-      ) : (
-        <p className="attachment-empty">No documents</p>
-      )}
+      ) : null}
     </section>
   );
 }
