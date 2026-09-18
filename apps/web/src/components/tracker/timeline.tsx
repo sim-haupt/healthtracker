@@ -21,7 +21,6 @@ import { useProfiles } from "../app-shell";
 import { ProfileIdentity } from "../ui/profile-avatar";
 import { LoadingState, ErrorState } from "../ui/feedback";
 import { localeCode } from "@/lib/locale";
-import { TagPill } from "../ui/labels";
 import { formatAccessibleDate, ordinalDay } from "@/lib/date-format";
 import { CustomSelect } from "../ui/pickers";
 import { ProfileColumns } from "../ui/profile-columns";
@@ -78,19 +77,6 @@ function TimelineEntry({ item }: { item: TimelineItem }) {
           {item.title}
           <ArrowUpRight size={17} aria-hidden />
         </h3>
-        {item.summary && (
-          <p className="timeline-summary">
-            {item.summary}
-            {item.summary.length === 320 ? "…" : ""}
-          </p>
-        )}
-        {item.tags.length > 0 && (
-          <div className="event-labels">
-            {item.tags.map((tag) => (
-              <TagPill name={tag.name} key={tag.id} />
-            ))}
-          </div>
-        )}
       </Link>
     </li>
   );
