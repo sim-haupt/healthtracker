@@ -5773,23 +5773,25 @@ h3 {
 }
 .date-picker-month {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  grid-template-columns: 38px minmax(0, 1fr) 38px;
   align-items: center;
+  gap: 7px;
   margin-bottom: 10px;
   text-align: center;
 }
 .date-picker-period {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 82px;
-  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) 94px;
+  align-items: center;
+  gap: 7px;
   min-width: 0;
 }
 .date-picker-month-select,
 .date-picker-year {
   width: 100%;
   min-width: 0;
-  height: 34px;
-  padding: 0 8px;
+  height: 38px;
+  padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-tint);
@@ -5809,17 +5811,18 @@ h3 {
 .date-picker-month button {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   padding: 0;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-tint);
   color: var(--ink);
   cursor: pointer;
 }
 .date-picker-month button:hover {
-  background: var(--surface-tint);
+  border-color: var(--accent);
+  background: white;
 }
 .date-picker-weekdays,
 .date-picker-days {
