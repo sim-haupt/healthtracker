@@ -10,6 +10,7 @@ export const eventTypes = [
   "Symptom",
   "Other",
   "Migraine",
+  "Herpes",
 ] as const;
 const storedEventTypes = [...eventTypes, "Medication", "Vaccination"] as const;
 const shortText = z

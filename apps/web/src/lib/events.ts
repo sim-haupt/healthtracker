@@ -8,6 +8,7 @@ export const eventTypes = [
   "Symptom",
   "Other",
   "Migraine",
+  "Herpes",
 ] as const;
 export type EventType = string;
 export type DetailField =
