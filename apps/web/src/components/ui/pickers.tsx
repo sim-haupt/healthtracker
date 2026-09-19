@@ -368,11 +368,27 @@ export function DatePicker({
               <ChevronLeft size={17} />
             </button>
             <strong>
-              {month.toLocaleDateString(localeCode(), {
-                month: "long",
-                year: "numeric",
-              })}
+              {month.toLocaleDateString(localeCode(), { month: "long" })}
             </strong>
+            <select
+              className="date-picker-year"
+              aria-label="Select year"
+              value={month.getFullYear()}
+              onChange={(event) =>
+                setMonth(
+                  new Date(Number(event.target.value), month.getMonth(), 1),
+                )
+              }
+            >
+              {Array.from(
+                { length: 201 },
+                (_, index) => new Date().getFullYear() - 100 + index,
+              ).map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
               aria-label="Next month"

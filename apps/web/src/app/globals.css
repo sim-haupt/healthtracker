@@ -2071,6 +2071,29 @@ h3 {
 .event-form .event-basic-grid {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
+.date-picker-month {
+  align-items: center;
+  grid-template-columns: 36px 1fr auto 36px;
+}
+.date-picker-year {
+  min-width: 72px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-tint);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.date-time-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
 .event-form .basic-profile,
 .event-form .basic-type {
   grid-column: span 3;
@@ -5751,7 +5774,7 @@ h3 {
 }
 .date-picker-month {
   display: grid;
-  grid-template-columns: 36px 1fr 36px;
+  grid-template-columns: 36px 1fr auto 36px;
   align-items: center;
   margin-bottom: 10px;
   text-align: center;

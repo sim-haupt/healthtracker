@@ -172,6 +172,9 @@ export function EventForm({
     ...eventDraft(event, activeProfile?.id ?? profiles[0]?.id, initialDate),
     ...(!event && initialType ? { event_type: initialType } : {}),
   }));
+  const [timeEnabled, setTimeEnabled] = useState(
+    () => draft.event_type === "Doctor Visit",
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -304,6 +307,35 @@ export function EventForm({
     setDraft((previous) => ({ ...previous, [field]: value }));
     setDirty(true);
     setErrors((previous) => ({ ...previous, [field]: "" }));
+  }
+
+  function setEventType(value: string) {
+    update("event_type", value);
+    const enabled = value === "Doctor Visit";
+    setTimeEnabled(enabled);
+    if (!enabled) {
+      setDraft((previous) => ({
+        ...previous,
+        event_date: previous.event_date.slice(0, 10),
+        end_date: previous.end_date ? previous.end_date.slice(0, 10) : "",
+      }));
+    }
+  }
+
+  function toggleTime(enabled: boolean) {
+    setTimeEnabled(enabled);
+    setDraft((previous) => ({
+      ...previous,
+      event_date: enabled
+        ? `${previous.event_date.slice(0, 10)}T09:00:00`
+        : previous.event_date.slice(0, 10),
+      end_date: previous.end_date
+        ? enabled
+          ? `${previous.end_date.slice(0, 10)}T09:00:00`
+          : previous.end_date.slice(0, 10)
+        : "",
+    }));
+    setDirty(true);
   }
 
   function highlight(fields: Record<string, string>) {
@@ -749,7 +781,7 @@ export function EventForm({
                   value={draft.event_type}
                   invalid={!!errors.event_type}
                   placeholder="Choose a type"
-                  onChange={(value) => update("event_type", value)}
+                  onChange={setEventType}
                   options={availableTypeOptions.map((option) => ({
                     value: option.key,
                     label: option.name + (option.archived ? " (removed)" : ""),
@@ -793,18 +825,28 @@ export function EventForm({
                 <label htmlFor="event_date">Date</label>
                 <DatePicker
                   id="event_date"
-                  mode="datetime"
+                  mode={timeEnabled ? "datetime" : "date"}
                   value={draft.event_date}
                   invalid={!!errors.event_date}
                   onChange={(value) => update("event_date", value)}
                 />
                 {feedback("event_date")}
+                {type !== "Doctor Visit" && (
+                  <label className="date-time-toggle">
+                    <input
+                      type="checkbox"
+                      checked={timeEnabled}
+                      onChange={(change) => toggleTime(change.target.checked)}
+                    />
+                    Add time
+                  </label>
+                )}
               </div>
               <div className="form-field basic-end">
                 <label htmlFor="end_date">End date</label>
                 <DatePicker
                   id="end_date"
-                  mode="datetime"
+                  mode={timeEnabled ? "datetime" : "date"}
                   optional
                   value={draft.end_date}
                   invalid={!!errors.end_date}
