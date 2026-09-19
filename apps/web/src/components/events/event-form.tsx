@@ -33,7 +33,7 @@ import {
   type EventDraft,
 } from "@/lib/events";
 import { formatDate } from "@/lib/date-format";
-import { parseDay } from "@/lib/tracker";
+import { dayKey, parseDay } from "@/lib/tracker";
 import { useProfiles } from "../app-shell";
 import { isUserEventType, useEventTypes } from "../event-types";
 import { useProviders } from "../providers-context";
@@ -83,20 +83,47 @@ const examinationTypeOptions = [
   "Physical examination",
 ];
 
-function googleCalendarDate(value: string) {
-  return new Date(value).toISOString().replace(/[-:]/g, "").replace(".000", "");
+function googleCalendarDay(value: string) {
+  return value.slice(0, 10).replaceAll("-", "");
 }
 
-function googleCalendarUrl(event: HealthEvent) {
-  const start = new Date(event.event_date);
-  const end = event.end_date
-    ? new Date(event.end_date)
-    : new Date(start.getTime() + 60 * 60 * 1000);
+function nextCalendarDay(value: string) {
+  const day = parseDay(value.slice(0, 10)) ?? new Date();
+  day.setDate(day.getDate() + 1);
+  return googleCalendarDay(dayKey(day));
+}
+
+function googleCalendarTime(value: string) {
+  const [date, rawTime = "09:00:00"] = value.split("T");
+  const time = `${rawTime}:00`.slice(0, 8);
+  return `${googleCalendarDay(date)}T${time.replaceAll(":", "")}`;
+}
+
+function oneHourAfter(value: string) {
+  const date = new Date(value);
+  date.setHours(date.getHours() + 1);
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function googleCalendarUrl(draft: EventDraft, includeTime: boolean) {
+  const start = draft.event_date;
+  const dates = includeTime
+    ? `${googleCalendarTime(start)}/${googleCalendarTime(draft.end_date || oneHourAfter(start))}`
+    : `${googleCalendarDay(start)}/${nextCalendarDay(draft.end_date || start)}`;
+  const title =
+    draft.event_type === "Vaccination"
+      ? draft.disease?.trim() || draft.title.trim()
+      : draft.title.trim();
   const params = new URLSearchParams({
     action: "TEMPLATE",
-    text: event.title || "Health event",
-    dates: `${googleCalendarDate(start.toISOString())}/${googleCalendarDate(end.toISOString())}`,
+    text: title || "Health event",
+    dates,
   });
+  if (includeTime) {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (timezone) params.set("ctz", timezone);
+  }
   return "https://calendar.google.com/calendar/render?" + params.toString();
 }
 
@@ -352,8 +379,8 @@ export function EventForm({
     if (busy || labelBusy) return;
     const addToCalendar = submitMode.current === "calendar";
     submitMode.current = "save";
-    const calendarWindow = addToCalendar ? window.open("", "_blank") : null;
-    if (calendarWindow) calendarWindow.opener = null;
+    let calendarWindow: Window | null = null;
+    let calendarUrl = "";
     const issues = validateDraft(
       draft,
       profiles.map((profile) => profile.id),
@@ -368,10 +395,14 @@ export function EventForm({
       issues.event_type = "Choose an available event type.";
     setError("");
     if (Object.keys(issues).length) {
-      calendarWindow?.close();
       highlight(issues);
       setError("Please check the highlighted fields.");
       return;
+    }
+    if (addToCalendar) {
+      calendarUrl = googleCalendarUrl(draft, timeEnabled);
+      calendarWindow = window.open(calendarUrl, "_blank");
+      if (calendarWindow) calendarWindow.opener = null;
     }
     setBusy(true);
     try {
@@ -475,9 +506,11 @@ export function EventForm({
           : "Event saved.",
       );
       if (addToCalendar) {
-        const url = googleCalendarUrl(saved);
-        if (calendarWindow) calendarWindow.location.href = url;
-        else window.open(url, "_blank", "noopener,noreferrer");
+        if (!calendarWindow) {
+          setDirty(false);
+          window.location.assign(calendarUrl);
+          return;
+        }
       }
       setDirty(false);
       router.push("/events/" + saved.id);
