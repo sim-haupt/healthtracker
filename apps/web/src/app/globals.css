@@ -7095,3 +7095,146 @@ h3 {
 .import-event-dialog > .form-actions {
   padding: 16px 20px 20px;
 }
+
+/* Keep every editor usable within compact mobile viewports. */
+.form-dialog {
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+}
+.form-dialog > .form-actions {
+  position: sticky;
+  z-index: 4;
+  bottom: -28px;
+  margin: 18px -28px -28px;
+  padding: 12px 28px 20px;
+  border-top: 1px solid var(--line);
+  background: white;
+  box-shadow: 0 -8px 18px #0054610a;
+}
+.import-event-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.import-event-dialog > .import-event-body {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.import-event-dialog > .form-actions {
+  flex: 0 0 auto;
+  margin: 0;
+  border-top: 1px solid var(--line);
+  background: white;
+}
+@media (max-width: 640px) {
+  .event-form,
+  .episode-editor-form,
+  .profile-editor,
+  .label-manager,
+  .event-form fieldset,
+  .episode-editor-form fieldset,
+  .provider-dialog fieldset,
+  .reminder-dialog fieldset {
+    width: 100%;
+    min-width: 0;
+  }
+  .event-section-grid,
+  .event-medical-grid,
+  .provider-form-grid,
+  .reminder-form-grid,
+  .document-form-grid,
+  .episode-information-grid,
+  .vaccination-renewal-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .event-section-grid > *,
+  .event-medical-grid > *,
+  .provider-form-grid > *,
+  .reminder-form-grid > *,
+  .document-form-grid > *,
+  .episode-information-grid > * {
+    min-width: 0;
+    grid-column: auto;
+  }
+  .event-form-section-body,
+  .episode-editor-form .event-form-section-body {
+    padding: 12px;
+  }
+  .profile-choices {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+  .profile-choices > label {
+    width: 100%;
+    min-width: 0;
+  }
+  .form-actions,
+  .settings-save {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+  .form-actions .button,
+  .settings-save .button,
+  .type-editor > .button {
+    width: 100%;
+  }
+  .event-form-toolbar {
+    margin-top: 0;
+  }
+  .event-form-toolbar .button {
+    width: 100%;
+  }
+  .form-dialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+    padding: 14px;
+    border-radius: 10px;
+  }
+  .form-dialog > h2 {
+    position: sticky;
+    z-index: 5;
+    top: -14px;
+    margin: -14px -14px 14px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-tint);
+  }
+  .form-dialog > .form-actions {
+    bottom: -14px;
+    margin: 14px -14px -14px;
+    padding: 12px 14px max(14px, env(safe-area-inset-bottom));
+  }
+  .import-event-dialog > .import-event-body {
+    padding: 14px;
+  }
+  .import-event-body textarea {
+    min-height: 180px;
+  }
+  .import-event-dialog > .form-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    padding: 12px 14px max(14px, env(safe-area-inset-bottom));
+  }
+  .import-event-dialog > .form-actions .button {
+    width: 100%;
+  }
+  .rich-text-toolbar {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+}
+@media (max-width: 380px) {
+  .profile-choices {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
