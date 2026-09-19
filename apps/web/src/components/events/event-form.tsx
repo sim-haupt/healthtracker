@@ -15,6 +15,8 @@ import {
   Plus,
   Save,
   Trash2,
+  Paperclip,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -1404,33 +1406,71 @@ export function EventForm({
                 />
               </div>
               <div className="form-field">
-                <label htmlFor="event-upload">Upload file</label>
-                <input
-                  id="event-upload"
-                  type="file"
-                  accept="image/*,.pdf,.doc,.docx,.txt,.csv"
-                  onChange={(change) => {
-                    const chosen = change.target.files?.[0] ?? null;
-                    if (!chosen) return;
-                    const mimeType =
-                      chosen.type ||
-                      attachmentTypes[
-                        chosen.name.split(".").pop()?.toLowerCase() ?? ""
-                      ] ||
-                      "";
-                    const issue = attachmentError(
-                      chosen.name,
-                      chosen.size,
-                      mimeType,
-                    );
-                    setEventUploadError(issue ?? "");
-                    setEventUpload(issue ? null : chosen);
-                    setDirty(true);
-                  }}
-                />
-                {eventUpload && (
-                  <span className="field-hint">{eventUpload.name}</span>
-                )}
+                <span className="field-label">Upload file</span>
+                <div
+                  className={`event-file-upload ${eventUpload ? "has-file" : ""}`}
+                >
+                  <label
+                    className="event-file-upload-choice"
+                    htmlFor="event-upload"
+                  >
+                    <span className="event-file-upload-icon">
+                      <Paperclip size={18} />
+                    </span>
+                    <span className="event-file-upload-copy">
+                      <strong>
+                        {eventUpload ? eventUpload.name : "Choose a file"}
+                      </strong>
+                      <small>
+                        {eventUpload
+                          ? `${(eventUpload.size / 1024 / 1024).toFixed(2)} MB · Ready to upload`
+                          : "Photos, PDFs, or documents up to 10 MB"}
+                      </small>
+                    </span>
+                    <span className="event-file-upload-action">
+                      {eventUpload ? "Change" : "Browse"}
+                    </span>
+                  </label>
+                  <input
+                    id="event-upload"
+                    className="event-file-upload-input"
+                    type="file"
+                    accept="image/*,.pdf,.doc,.docx,.txt,.csv"
+                    onChange={(change) => {
+                      const chosen = change.target.files?.[0] ?? null;
+                      if (!chosen) return;
+                      const mimeType =
+                        chosen.type ||
+                        attachmentTypes[
+                          chosen.name.split(".").pop()?.toLowerCase() ?? ""
+                        ] ||
+                        "";
+                      const issue = attachmentError(
+                        chosen.name,
+                        chosen.size,
+                        mimeType,
+                      );
+                      setEventUploadError(issue ?? "");
+                      setEventUpload(issue ? null : chosen);
+                      setDirty(true);
+                    }}
+                  />
+                  {eventUpload && (
+                    <button
+                      type="button"
+                      className="event-file-upload-remove"
+                      aria-label="Remove selected file"
+                      title="Remove file"
+                      onClick={() => {
+                        setEventUpload(null);
+                        setEventUploadError("");
+                        setDirty(true);
+                      }}
+                    >
+                      <X size={15} />
+                    </button>
+                  )}
+                </div>
                 {eventUploadError && (
                   <p className="field-error">{eventUploadError}</p>
                 )}

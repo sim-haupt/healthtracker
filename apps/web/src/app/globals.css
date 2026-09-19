@@ -2739,6 +2739,54 @@ h3 {
   align-items: center;
   gap: 4px;
 }
+.event-file-upload {
+  position: relative;
+  border: 1px dashed var(--control-border);
+  border-radius: 12px;
+  background: var(--surface-tint);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.event-file-upload:hover,
+.event-file-upload:focus-within,
+.event-file-upload.has-file {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--surface-tint) 70%, white);
+}
+.event-file-upload-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 66px;
+  padding: 10px 42px 10px 12px;
+  cursor: pointer;
+}
+.event-file-upload-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 9px;
+  background: white;
+  color: var(--deep);
+}
+.event-file-upload-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.event-file-upload-copy strong,
+.event-file-upload-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.event-file-upload-copy strong { color: var(--ink); font-size: 0.82rem; }
+.event-file-upload-copy small { color: var(--muted); font-size: 0.72rem; }
+.event-file-upload-action { margin-left: auto; color: var(--deep); font-size: 0.76rem; font-weight: 700; }
+.event-file-upload-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.event-file-upload-remove { position: absolute; top: 8px; right: 8px; display: grid; width: 26px; height: 26px; padding: 0; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer; }
+.event-file-upload-remove:hover { background: white; color: var(--danger); }
 .event-form .attachment-upload-dialog .file-choice {
   display: flex;
   min-height: 44px;
