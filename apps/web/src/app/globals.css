@@ -5764,7 +5764,7 @@ h3 {
   z-index: 80;
   top: calc(100% + 6px);
   left: 0;
-  width: min(320px, calc(100vw - 40px));
+  width: min(380px, calc(100vw - 24px));
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -5781,34 +5781,39 @@ h3 {
 }
 .date-picker-period {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 94px;
+  grid-template-columns: minmax(0, 1fr) 108px;
   align-items: center;
   gap: 7px;
   min-width: 0;
 }
-.date-picker-month-select,
-.date-picker-year {
-  width: 100%;
-  min-width: 0;
+.date-picker-period .custom-select-trigger {
   height: 38px;
+  min-height: 38px;
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-tint);
   color: var(--ink);
-  font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  cursor: pointer;
 }
-.date-picker-month-select:hover,
-.date-picker-year:hover,
-.date-picker-month-select:focus,
-.date-picker-year:focus {
+.date-picker-period .custom-select-trigger:hover,
+.date-picker-period .custom-select-trigger[aria-expanded="true"] {
   border-color: var(--accent);
-  outline: none;
 }
-.date-picker-month button {
+.date-picker-period .custom-select-trigger > span {
+  text-overflow: clip;
+}
+.date-picker-period .custom-select-trigger svg {
+  width: 15px;
+  height: 15px;
+}
+.date-picker-period .custom-select-menu {
+  width: 100%;
+  min-width: 100%;
+  max-height: 260px;
+}
+.date-picker-month > button {
   display: grid;
   place-items: center;
   width: 38px;
@@ -5820,7 +5825,7 @@ h3 {
   color: var(--ink);
   cursor: pointer;
 }
-.date-picker-month button:hover {
+.date-picker-month > button:hover {
   border-color: var(--accent);
   background: white;
 }
@@ -5934,20 +5939,32 @@ h3 {
   padding-top: 12px;
   border-top: 1px solid var(--line);
 }
-.date-picker-time label {
+.date-picker-time-label {
   font-size: 0.8125rem;
   font-weight: 600;
 }
-.date-picker-time input {
-  width: 100%;
+.date-picker-time-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.date-picker-time-controls > span {
+  color: var(--muted);
+  font-weight: 700;
+}
+.date-picker-time-controls .custom-select-trigger {
+  height: 40px;
   min-height: 40px;
-  padding: 8px 10px;
-  border: 1px solid var(--control-border);
-  border-radius: 7px;
-  background: white;
-  color: var(--ink);
-  color-scheme: light;
-  font: inherit;
+  padding: 0 9px;
+  border-radius: 8px;
+  background: var(--surface-tint);
+}
+.date-picker-time-controls .custom-select-menu {
+  width: 100%;
+  min-width: 76px;
+  max-height: 220px;
 }
 .date-picker-time .button {
   min-height: 40px;

@@ -40,6 +40,16 @@ function snapTimeToFiveMinutes(value: string) {
   return `${String(Math.floor(bounded / 60)).padStart(2, "0")}:${String(bounded % 60).padStart(2, "0")}`;
 }
 
+const hourOptions = Array.from({ length: 24 }, (_, hour) => {
+  const value = String(hour).padStart(2, "0");
+  return { value, label: value };
+});
+
+const minuteOptions = Array.from({ length: 12 }, (_, index) => {
+  const value = String(index * 5).padStart(2, "0");
+  return { value, label: value };
+});
+
 export function CustomSelect({
   id,
   value,
@@ -361,6 +371,15 @@ export function DatePicker({
     onChange(`${dayKey(selectedDay)}T${snapped}:00`);
   }
 
+  function changeTimePart(part: "hour" | "minute", nextValue: string) {
+    const snapped = snapTimeToFiveMinutes(time) || "09:00";
+    const [hour, minute] = snapped.split(":");
+    const next =
+      part === "hour" ? `${nextValue}:${minute}` : `${hour}:${nextValue}`;
+    setTime(next);
+    commitTime(next);
+  }
+
   const display = value
     ? mode === "datetime"
       ? formatDateTime(new Date(value).toISOString())
@@ -389,7 +408,7 @@ export function DatePicker({
             setMonth(
               new Date(selectedDay.getFullYear(), selectedDay.getMonth(), 1),
             );
-          setTime(value.slice(11, 16) || "09:00");
+          setTime(snapTimeToFiveMinutes(value.slice(11, 16) || "09:00"));
           setOpen((current) => !current);
         }}
       >
@@ -413,42 +432,32 @@ export function DatePicker({
               <ChevronLeft size={17} />
             </button>
             <div className="date-picker-period">
-              <select
-                className="date-picker-month-select"
-                aria-label="Select month"
-                value={month.getMonth()}
-                onChange={(event) =>
-                  setMonth(
-                    new Date(
-                      month.getFullYear(),
-                      Number(event.target.value),
-                      1,
-                    ),
-                  )
+              <CustomSelect
+                id={`${id}-month`}
+                className="date-picker-month-control"
+                value={String(month.getMonth())}
+                ariaLabel="Select month"
+                onChange={(nextMonth) =>
+                  setMonth(new Date(month.getFullYear(), Number(nextMonth), 1))
                 }
-              >
-                {months.map((label, index) => (
-                  <option key={label} value={index}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="date-picker-year"
-                aria-label="Select year"
-                value={month.getFullYear()}
-                onChange={(event) =>
-                  setMonth(
-                    new Date(Number(event.target.value), month.getMonth(), 1),
-                  )
+                options={months.map((label, index) => ({
+                  value: String(index),
+                  label,
+                }))}
+              />
+              <CustomSelect
+                id={`${id}-year`}
+                className="date-picker-year-control"
+                value={String(month.getFullYear())}
+                ariaLabel="Select year"
+                onChange={(nextYear) =>
+                  setMonth(new Date(Number(nextYear), month.getMonth(), 1))
                 }
-              >
-                {years.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
+                options={years.map((year) => ({
+                  value: String(year),
+                  label: String(year),
+                }))}
+              />
             </div>
             <button
               type="button"
@@ -502,18 +511,26 @@ export function DatePicker({
           )}
           {mode === "datetime" && (
             <div className="date-picker-time">
-              <label htmlFor={`${id}-time`}>Time</label>
-              <input
-                id={`${id}-time`}
-                type="time"
-                step={300}
-                value={time}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  setTime(next);
-                }}
-                onBlur={() => commitTime(time)}
-              />
+              <span className="date-picker-time-label">Time</span>
+              <div className="date-picker-time-controls">
+                <CustomSelect
+                  id={`${id}-hour`}
+                  value={(snapTimeToFiveMinutes(time) || "09:00").slice(0, 2)}
+                  ariaLabel="Select hour"
+                  onChange={(nextHour) => changeTimePart("hour", nextHour)}
+                  options={hourOptions}
+                />
+                <span aria-hidden="true">:</span>
+                <CustomSelect
+                  id={`${id}-minute`}
+                  value={(snapTimeToFiveMinutes(time) || "09:00").slice(3, 5)}
+                  ariaLabel="Select minute"
+                  onChange={(nextMinute) =>
+                    changeTimePart("minute", nextMinute)
+                  }
+                  options={minuteOptions}
+                />
+              </div>
               <button
                 type="button"
                 className="button"
