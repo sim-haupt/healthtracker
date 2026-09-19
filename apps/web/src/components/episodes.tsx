@@ -679,21 +679,33 @@ export function EpisodesPage({ id }: { id?: string }) {
             : (episode?.title ?? "Health episodes")}
         </h1>
         {!editing && (
-          <button
-            className={id ? "icon-button" : "button"}
-            aria-label={id ? "Edit episode" : undefined}
-            title={id ? "Edit" : undefined}
-            disabled={!!id && !episode}
-            onClick={() => setEditing(true)}
-          >
-            {id ? (
-              <Pencil size={17} aria-hidden="true" />
-            ) : (
-              <>
-                <Plus size={16} /> Add episode
-              </>
+          <div className="episode-header-actions">
+            <button
+              className={id ? "icon-button" : "button"}
+              aria-label={id ? "Edit episode" : undefined}
+              title={id ? "Edit" : undefined}
+              disabled={!!id && !episode}
+              onClick={() => setEditing(true)}
+            >
+              {id ? (
+                <Pencil size={17} aria-hidden="true" />
+              ) : (
+                <>
+                  <Plus size={16} /> Add episode
+                </>
+              )}
+            </button>
+            {id && episode && (
+              <button
+                className="icon-button danger-icon"
+                aria-label="Delete episode"
+                title="Delete"
+                onClick={() => setDeleting(true)}
+              >
+                <Trash2 size={17} aria-hidden="true" />
+              </button>
             )}
-          </button>
+          </div>
         )}
       </div>
       {editing ? (
@@ -746,14 +758,6 @@ export function EpisodesPage({ id }: { id?: string }) {
             <h2>Related documents</h2>
             <EpisodeDocumentList documents={episode.documents ?? []} />
           </section>
-          <button
-            className="icon-button danger-icon episode-delete-action"
-            aria-label="Delete episode"
-            title="Delete"
-            onClick={() => setDeleting(true)}
-          >
-            <Trash2 size={17} aria-hidden="true" />
-          </button>
         </>
       ) : (
         <div

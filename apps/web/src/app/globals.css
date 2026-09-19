@@ -5124,8 +5124,10 @@ h3 {
   font-size: 0.8125rem;
   text-transform: capitalize;
 }
-.episode-delete-action {
-  margin-top: 16px;
+.episode-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .label-pill svg {
   flex-shrink: 0;
