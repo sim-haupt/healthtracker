@@ -333,12 +333,13 @@ export function createUserDataAccess(
         .insert({
           ...attachmentInput,
           id,
+          document_group_id: input.document_group_id ?? id,
           owner_id: ownerId,
           health_event_id: eventId,
           file_path: `${ownerId}/${eventId}/${id}`,
         })
         .select(
-          "id,health_event_id,file_name,file_path,mime_type,file_size,document_category,attachment_kind,description,created_at",
+          "id,document_group_id,health_event_id,file_name,file_path,mime_type,file_size,document_category,attachment_kind,description,created_at",
         )
         .single();
       if (error)

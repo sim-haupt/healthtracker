@@ -1834,6 +1834,30 @@ h3 {
   padding: 0;
   margin: 20px 0 0;
 }
+.event-document-groups {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+.event-document-group {
+  padding: 16px 18px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-tint);
+}
+.event-document-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.event-document-title .rich-text-content > :first-child {
+  margin-top: 0;
+}
+.event-document-title .rich-text-content > :last-child {
+  margin-bottom: 0;
+}
+.event-document-group .attachment-list {
+  margin-top: 8px;
+}
 .attachment-item {
   display: flex;
   align-items: center;
@@ -1949,10 +1973,19 @@ h3 {
 .document-body {
   min-width: 0;
 }
-.document-body h2 {
+.document-body h2,
+.document-title {
   font-size: 1rem;
+  font-weight: 700;
   overflow-wrap: anywhere;
   margin-top: 9px;
+}
+.document-title .rich-text-content,
+.document-title .rich-text-content > :first-child {
+  margin-top: 0;
+}
+.document-title .rich-text-content > :last-child {
+  margin-bottom: 0;
 }
 .document-body > p:not(.field-error) {
   color: var(--muted);
@@ -1993,6 +2026,25 @@ h3 {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+.document-file-actions {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.document-file-button {
+  max-width: min(100%, 290px);
+}
+.document-file-button > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.document-file-button small {
+  color: var(--muted);
+  font-size: 0.7rem;
 }
 .document-actions .text-link {
   min-width: 0;

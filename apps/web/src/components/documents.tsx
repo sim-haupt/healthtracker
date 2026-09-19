@@ -28,6 +28,7 @@ import { ProfileColumns } from "./ui/profile-columns";
 import { eventDisplayTitle } from "@/lib/events";
 import {
   categoryLabel,
+  documentTitle,
   documentFileTypes,
   documentFilterQuery,
   emptyDocumentFilters,
@@ -40,22 +41,24 @@ type DocumentResults = { documents: HealthDocument[]; total: number };
 
 function DocumentCard({ item }: { item: HealthDocument }) {
   const { profiles } = useProfiles();
-  const [opening, setOpening] = useState(false);
+  const [opening, setOpening] = useState("");
   const [error, setError] = useState("");
   const profile = profiles.find((entry) => entry.id === item.profile_id);
-  const previewable =
-    item.mime_type.startsWith("image/") || item.mime_type === "application/pdf";
+  const files = item.files?.length ? item.files : [item];
 
-  async function open() {
+  async function open(file: (typeof files)[number]) {
     if (opening) return;
+    const previewable =
+      file.mime_type.startsWith("image/") ||
+      file.mime_type === "application/pdf";
     const preview = previewable ? window.open("", "_blank") : null;
     if (preview) preview.opener = null;
-    setOpening(true);
+    setOpening(file.id);
     setError("");
     try {
       const { data, error: storageError } = await supabase!.storage
         .from("health-attachments")
-        .download(item.file_path);
+        .download(file.file_path);
       if (storageError)
         throw new Error("This private file could not be opened. Please retry.");
       const url = URL.createObjectURL(data);
@@ -64,7 +67,7 @@ function DocumentCard({ item }: { item: HealthDocument }) {
         preview?.close();
         const link = document.createElement("a");
         link.href = url;
-        link.download = item.file_name;
+        link.download = file.file_name;
         link.click();
       }
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
@@ -72,11 +75,13 @@ function DocumentCard({ item }: { item: HealthDocument }) {
       preview?.close();
       setError(cause instanceof Error ? cause.message : "Unable to open file.");
     } finally {
-      setOpening(false);
+      setOpening("");
     }
   }
 
-  const Icon = item.mime_type.startsWith("image/") ? FileImage : FileText;
+  const Icon = files.some((file) => file.mime_type.startsWith("image/"))
+    ? FileImage
+    : FileText;
   return (
     <article className="card document-card">
       <div className="document-icon" aria-hidden>
@@ -85,11 +90,18 @@ function DocumentCard({ item }: { item: HealthDocument }) {
       <div className="document-body">
         <div className="document-meta">
           <DocumentCategoryPill name={categoryLabel(item.document_category)} />
-          <span>{fileKind(item)}</span>
+          <span>
+            {files.length === 1 ? fileKind(files[0]) : `${files.length} files`}
+          </span>
           <span>{(item.file_size / 1024 / 1024).toFixed(2)} MB</span>
         </div>
-        <h2>{item.file_name}</h2>
-        {item.description && <RichTextContent value={item.description} />}
+        <div className="document-title" role="heading" aria-level={2}>
+          {item.description ? (
+            <RichTextContent value={item.description} />
+          ) : (
+            documentTitle(item)
+          )}
+        </div>
         <div className="document-context">
           <ProfileIdentity
             name={profile?.name ?? "Health profile"}
@@ -113,14 +125,32 @@ function DocumentCard({ item }: { item: HealthDocument }) {
         )}
       </div>
       <div className="document-actions">
-        <button
-          className="button secondary-button"
-          onClick={open}
-          disabled={opening}
-        >
-          <Download size={16} />
-          {opening ? "Opening…" : previewable ? "Open" : "Download"}
-        </button>
+        <div className="document-file-actions">
+          {files.map((file) => {
+            const previewable =
+              file.mime_type.startsWith("image/") ||
+              file.mime_type === "application/pdf";
+            return (
+              <button
+                className="button secondary-button document-file-button"
+                onClick={() => open(file)}
+                disabled={!!opening}
+                key={file.id}
+                title={file.file_name}
+              >
+                <Download size={16} />
+                <span>{file.file_name}</span>
+                <small>
+                  {opening === file.id
+                    ? "Opening…"
+                    : previewable
+                      ? "Open"
+                      : "Download"}
+                </small>
+              </button>
+            );
+          })}
+        </div>
         <Link className="text-link" href={`/events/${item.health_event_id}`}>
           {item.event_title}
           <ArrowUpRight size={16} />
@@ -172,7 +202,11 @@ function DocumentResultsList({
         {data.total} {data.total === 1 ? "document" : "documents"} · Newest
         uploads first
       </div>
-      <ProfileColumns items={data.documents} profileId={(item) => item.profile_id} noun="document">
+      <ProfileColumns
+        items={data.documents}
+        profileId={(item) => item.profile_id}
+        noun="document"
+      >
         {(documents) => (
           <div className="document-list">
             {documents.map((item) => (

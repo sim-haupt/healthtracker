@@ -32,6 +32,7 @@ export const attachmentTypes: Record<string, string> = {
 };
 export type Attachment = {
   id: string;
+  document_group_id: string;
   health_event_id: string;
   file_name: string;
   file_path: string;

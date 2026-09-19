@@ -24,7 +24,11 @@ import { TagPill } from "./ui/labels";
 import { ProfileIdentity } from "./ui/profile-avatar";
 import { RichTextContent, RichTextEditor } from "./ui/rich-text";
 import { DatePicker } from "./ui/pickers";
-import { categoryLabel, type HealthDocument } from "@/lib/documents";
+import {
+  categoryLabel,
+  documentTitle,
+  type HealthDocument,
+} from "@/lib/documents";
 import {
   LoadingState,
   ErrorState,
@@ -490,7 +494,7 @@ function EpisodeEditor({
                     />
                     <FileText size={18} aria-hidden="true" />
                     <span>
-                      <strong>{document.file_name}</strong>
+                      <strong>{documentTitle(document)}</strong>
                       <small>
                         {categoryLabel(document.document_category)} ·{" "}
                         {document.event_title}
@@ -566,11 +570,7 @@ function EpisodeEventTimeline({ events }: { events: EventSummary[] }) {
   );
 }
 
-function EpisodeDocumentList({
-  documents,
-}: {
-  documents: HealthDocument[];
-}) {
+function EpisodeDocumentList({ documents }: { documents: HealthDocument[] }) {
   if (!documents.length)
     return <p className="overview-empty">No related documents.</p>;
   return (
@@ -579,7 +579,7 @@ function EpisodeDocumentList({
         <li key={document.id}>
           <FileText size={18} aria-hidden="true" />
           <span>
-            <strong>{document.file_name}</strong>
+            <strong>{documentTitle(document)}</strong>
             <small>
               {categoryLabel(document.document_category)} ·{" "}
               {document.event_title}

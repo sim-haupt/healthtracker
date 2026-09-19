@@ -3,10 +3,12 @@
 import { useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Upload } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 import { eventDisplayTitle, type EventSummary } from "@/lib/events";
 import {
   attachmentError,
   attachmentTypes,
+  type Attachment,
   type DocumentCategory,
 } from "@/lib/attachments";
 import { formatDate } from "@/lib/date-format";
@@ -93,20 +95,38 @@ export function DocumentUpload({
     }
     setBusy(true);
     setError("");
+    const uploaded: Attachment[] = [];
     try {
+      const documentGroupId = crypto.randomUUID();
       for (const item of validated)
-        await uploadPendingDocument(eventId, {
-          file: item.file,
-          mimeType: item.mimeType,
-          documentType,
-          description,
-          tagIds,
-        });
+        uploaded.push(
+          await uploadPendingDocument(
+            eventId,
+            {
+              file: item.file,
+              mimeType: item.mimeType,
+              documentType,
+              description,
+              tagIds,
+            },
+            "document",
+            documentGroupId,
+          ),
+        );
       dialog.current?.close();
       reset();
       toast("Document uploaded.");
       onUploaded();
     } catch (cause) {
+      await Promise.allSettled(
+        uploaded.map((attachment) =>
+          apiFetch(
+            `/api/v1/events/${eventId}/attachments/${attachment.id}`,
+            undefined,
+            { method: "DELETE" },
+          ),
+        ),
+      );
       setError(
         cause instanceof Error ? cause.message : "Unable to upload document.",
       );

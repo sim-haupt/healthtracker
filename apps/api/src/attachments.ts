@@ -22,6 +22,7 @@ export type AttachmentDataAccess = {
       file_size: number;
       document_category: DocumentCategory;
       attachment_kind: AttachmentKind;
+      document_group_id?: string;
       description: string | null;
       tag_ids: string[];
     },
@@ -65,6 +66,7 @@ export function attachmentRouter() {
         file_size: z.number(),
         document_category: z.enum(documentCategories).default("other"),
         attachment_kind: z.enum(attachmentKinds).default("document"),
+        document_group_id: z.uuid().optional(),
         description: z
           .string()
           .trim()

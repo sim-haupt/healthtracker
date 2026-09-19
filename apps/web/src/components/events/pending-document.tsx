@@ -10,7 +10,11 @@ import {
   type Attachment,
   type DocumentCategory,
 } from "@/lib/attachments";
-import { categoryLabel, type HealthDocument } from "@/lib/documents";
+import {
+  categoryLabel,
+  documentTitle,
+  type HealthDocument,
+} from "@/lib/documents";
 import { DocumentCategoryPill } from "../ui/labels";
 import { CustomSelect } from "../ui/pickers";
 import { DocumentFormFields } from "../document-form-fields";
@@ -31,6 +35,7 @@ export async function uploadPendingDocument(
   eventId: string,
   pending: PendingDocument,
   attachmentKind: "document" | "event_upload" = "document",
+  documentGroupId?: string,
 ) {
   const base = "/api/v1/events/" + eventId + "/attachments";
   let reserved: Attachment | null = null;
@@ -45,6 +50,7 @@ export async function uploadPendingDocument(
         ...(attachmentKind === "event_upload"
           ? { attachment_kind: attachmentKind }
           : {}),
+        ...(documentGroupId ? { document_group_id: documentGroupId } : {}),
         description: pending.description || null,
         tag_ids: pending.tagIds,
       },
@@ -199,7 +205,7 @@ export function PendingDocumentPicker({
     value?.source === "new"
       ? value.document.file.name
       : value?.source === "existing"
-        ? value.document.file_name
+        ? documentTitle(value.document)
         : "";
   const selectedSize =
     value?.source === "new"
@@ -239,7 +245,7 @@ export function PendingDocumentPicker({
               },
               ...documents.map((document) => ({
                 value: document.id,
-                label: document.file_name + " · " + document.event_title,
+                label: documentTitle(document) + " · " + document.event_title,
               })),
             ]}
           />

@@ -4,11 +4,17 @@ import { Download, FileText, Paperclip } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { type Attachment } from "@/lib/attachments";
-import { categoryLabel } from "@/lib/documents";
+import { categoryLabel, documentTitle } from "@/lib/documents";
 import { DocumentCategoryPill } from "../ui/labels";
 import { RichTextContent } from "../ui/rich-text";
 
-function AttachmentItem({ item }: { item: Attachment }) {
+function AttachmentItem({
+  item,
+  showDescription = true,
+}: {
+  item: Attachment;
+  showDescription?: boolean;
+}) {
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -91,7 +97,9 @@ function AttachmentItem({ item }: { item: Attachment }) {
           {item.file_name.split(".").pop()?.toUpperCase()} ·{" "}
           {(item.file_size / 1024 / 1024).toFixed(2)} MB
         </span>
-        {item.description && <RichTextContent value={item.description} />}
+        {showDescription && item.description && (
+          <RichTextContent value={item.description} />
+        )}
         {error && (
           <p className="field-error" role="alert">
             {error}{" "}
@@ -134,6 +142,15 @@ function AttachmentItem({ item }: { item: Attachment }) {
       )}
     </li>
   );
+}
+
+function groupedDocuments(items: Attachment[]) {
+  const groups = new Map<string, Attachment[]>();
+  for (const item of items) {
+    const key = item.document_group_id || item.id;
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  }
+  return [...groups.entries()];
 }
 
 export function EventAttachments({
@@ -248,11 +265,32 @@ export function EventAttachments({
           {items.length > 0 && (
             <>
               <h3>Documents</h3>
-              <ul className="attachment-list">
-                {items.map((item) => (
-                  <AttachmentItem key={item.id} item={item} />
+              <div className="event-document-groups">
+                {groupedDocuments(items).map(([groupId, files]) => (
+                  <section className="event-document-group" key={groupId}>
+                    <div
+                      className="event-document-title"
+                      role="heading"
+                      aria-level={4}
+                    >
+                      {files[0].description ? (
+                        <RichTextContent value={files[0].description} />
+                      ) : (
+                        documentTitle(files[0])
+                      )}
+                    </div>
+                    <ul className="attachment-list">
+                      {files.map((item) => (
+                        <AttachmentItem
+                          key={item.id}
+                          item={item}
+                          showDescription={false}
+                        />
+                      ))}
+                    </ul>
+                  </section>
                 ))}
-              </ul>
+              </div>
             </>
           )}
         </>

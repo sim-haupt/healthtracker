@@ -14,6 +14,7 @@ export const documentFileTypes = [
 ] as const;
 
 export type HealthDocument = Attachment & {
+  files?: Attachment[];
   profile_id: string;
   event_title: string;
   event_type: string;

@@ -12,6 +12,7 @@ export const documentFileTypes = [
 ] as const;
 
 export type HealthDocument = Attachment & {
+  files?: Attachment[];
   profile_id: string;
   event_title: string;
   event_type: string;
@@ -19,6 +20,23 @@ export type HealthDocument = Attachment & {
   event_category: Label | null;
   tags: Label[];
 };
+
+export function documentTitle(
+  document: Pick<Attachment, "description" | "file_name">,
+) {
+  const description = document.description
+    ?.replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+  return description || document.file_name;
+}
 
 export type DocumentFilters = {
   q: string;
