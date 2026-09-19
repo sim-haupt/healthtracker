@@ -27,6 +27,7 @@ export const emptyEventData: EventTypeDataAccess &
   updateLabel: async () => null,
   deleteLabel: async () => false,
   listAttachments: async () => [],
+  listEventUploads: async () => [],
   createAttachment: async () => {
     throw new Error("Unexpected attachment write");
   },

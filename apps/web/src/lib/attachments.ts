@@ -10,6 +10,7 @@ export const documentCategories = [
   "other",
 ] as const;
 export type DocumentCategory = (typeof documentCategories)[number];
+export type AttachmentKind = "document" | "event_upload";
 export const attachmentTypes: Record<string, string> = {
   pdf: "application/pdf",
   jpg: "image/jpeg",
@@ -36,6 +37,7 @@ export type Attachment = {
   mime_type: string;
   file_size: number;
   document_category: DocumentCategory;
+  attachment_kind: AttachmentKind;
   description: string | null;
   created_at: string;
 };

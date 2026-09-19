@@ -5,11 +5,14 @@ import {
   documentCategories,
   type Attachment,
   type DocumentCategory,
+  attachmentKinds,
+  type AttachmentKind,
 } from "./attachment-types.js";
 import { EventDataError } from "./events.js";
 import type { UserDataAccess } from "./data.js";
 export type AttachmentDataAccess = {
   listAttachments(eventId: string): Promise<Attachment[]>;
+  listEventUploads(eventId: string): Promise<Attachment[]>;
   createAttachment(
     eventId: string,
     ownerId: string,
@@ -18,11 +21,15 @@ export type AttachmentDataAccess = {
       mime_type: string;
       file_size: number;
       document_category: DocumentCategory;
+      attachment_kind: AttachmentKind;
       description: string | null;
       tag_ids: string[];
     },
   ): Promise<Attachment>;
-  linkAttachment(eventId: string, documentId: string): Promise<Attachment | null>;
+  linkAttachment(
+    eventId: string,
+    documentId: string,
+  ): Promise<Attachment | null>;
   deleteAttachment(eventId: string, id: string): Promise<boolean>;
 };
 export function attachmentRouter() {
@@ -43,6 +50,13 @@ export function attachmentRouter() {
       ),
     }),
   );
+  router.get("/uploads", async (req, res) =>
+    res.json({
+      attachments: await (res.locals.data as UserDataAccess).listEventUploads(
+        String(res.locals.eventId),
+      ),
+    }),
+  );
   router.post("/", async (req, res) => {
     const parsed = z
       .object({
@@ -50,6 +64,7 @@ export function attachmentRouter() {
         mime_type: z.string(),
         file_size: z.number(),
         document_category: z.enum(documentCategories).default("other"),
+        attachment_kind: z.enum(attachmentKinds).default("document"),
         description: z
           .string()
           .trim()
@@ -84,9 +99,10 @@ export function attachmentRouter() {
       .safeParse(req.body);
     if (!parsed.success)
       throw new EventDataError(400, "Choose an available document.");
-    const attachment = await (
-      res.locals.data as UserDataAccess
-    ).linkAttachment(String(res.locals.eventId), parsed.data.document_id);
+    const attachment = await (res.locals.data as UserDataAccess).linkAttachment(
+      String(res.locals.eventId),
+      parsed.data.document_id,
+    );
     if (!attachment)
       throw new EventDataError(
         404,

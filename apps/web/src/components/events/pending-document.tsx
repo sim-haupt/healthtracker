@@ -30,6 +30,7 @@ export type EventDocumentSelection =
 export async function uploadPendingDocument(
   eventId: string,
   pending: PendingDocument,
+  attachmentKind: "document" | "event_upload" = "document",
 ) {
   const base = "/api/v1/events/" + eventId + "/attachments";
   let reserved: Attachment | null = null;
@@ -41,6 +42,7 @@ export async function uploadPendingDocument(
         mime_type: pending.mimeType,
         file_size: pending.file.size,
         document_category: pending.documentType,
+        attachment_kind: attachmentKind,
         description: pending.description || null,
         tag_ids: pending.tagIds,
       },

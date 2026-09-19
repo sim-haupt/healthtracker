@@ -145,6 +145,7 @@ export function EventAttachments({
   disabled?: boolean;
 }) {
   const [items, setItems] = useState<Attachment[]>([]);
+  const [uploads, setUploads] = useState<Attachment[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const base = `/api/v1/events/${eventId}/attachments`;
@@ -155,6 +156,10 @@ export function EventAttachments({
     try {
       const data = await apiFetch<{ attachments: Attachment[] }>(base);
       setItems(data.attachments);
+      const uploadData = await apiFetch<{ attachments: Attachment[] }>(
+        base + "/uploads",
+      );
+      setUploads(uploadData.attachments);
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Unable to load documents.",
@@ -171,9 +176,18 @@ export function EventAttachments({
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
-    apiFetch<{ attachments: Attachment[] }>(base, controller.signal)
-      .then((data) => {
-        if (active) setItems(data.attachments);
+    Promise.all([
+      apiFetch<{ attachments: Attachment[] }>(base, controller.signal),
+      apiFetch<{ attachments: Attachment[] }>(
+        base + "/uploads",
+        controller.signal,
+      ),
+    ])
+      .then(([data, uploadData]) => {
+        if (active) {
+          setItems(data.attachments);
+          setUploads(uploadData.attachments);
+        }
       })
       .catch((cause) => {
         if (active) {
@@ -195,7 +209,7 @@ export function EventAttachments({
 
   // Keep the page clean when the event has no linked documents. An error still
   // renders the section so the user can retry the document lookup.
-  if (!loading && !items.length && !error) return null;
+  if (!loading && !items.length && !uploads.length && !error) return null;
 
   return (
     <section
@@ -219,13 +233,30 @@ export function EventAttachments({
       )}
       {loading ? (
         <p role="status">Loading documents…</p>
-      ) : items.length ? (
-        <ul className="attachment-list">
-          {items.map((item) => (
-            <AttachmentItem key={item.id} item={item} />
-          ))}
-        </ul>
-      ) : null}
+      ) : (
+        <>
+          {uploads.length > 0 && (
+            <>
+              <h3>Uploaded files</h3>
+              <ul className="attachment-list">
+                {uploads.map((item) => (
+                  <AttachmentItem key={item.id} item={item} />
+                ))}
+              </ul>
+            </>
+          )}
+          {items.length > 0 && (
+            <>
+              <h3>Documents</h3>
+              <ul className="attachment-list">
+                {items.map((item) => (
+                  <AttachmentItem key={item.id} item={item} />
+                ))}
+              </ul>
+            </>
+          )}
+        </>
+      )}
     </section>
   );
 }

@@ -317,6 +317,14 @@ export function createUserDataAccess(
         );
       return data as Attachment[];
     },
+    async listEventUploads(eventId) {
+      const { data, error } = await client.rpc("event_uploads", {
+        p_event_id: eventId,
+      });
+      if (error)
+        throw new EventDataError(503, "Uploads are temporarily unavailable.");
+      return data as Attachment[];
+    },
     async createAttachment(eventId, ownerId, input) {
       const id = randomUUID();
       const { tag_ids, ...attachmentInput } = input;
@@ -330,7 +338,7 @@ export function createUserDataAccess(
           file_path: `${ownerId}/${eventId}/${id}`,
         })
         .select(
-          "id,health_event_id,file_name,file_path,mime_type,file_size,document_category,description,created_at",
+          "id,health_event_id,file_name,file_path,mime_type,file_size,document_category,attachment_kind,description,created_at",
         )
         .single();
       if (error)

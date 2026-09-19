@@ -50,6 +50,12 @@ import {
   type EventDocumentSelection,
 } from "./pending-document";
 import { useTrackerResults, type EventResults } from "../tracker/use-results";
+import { supabase } from "@/lib/supabase";
+import {
+  attachmentError,
+  attachmentTypes,
+  type Attachment,
+} from "@/lib/attachments";
 
 type EpisodeOption = {
   id: string;
@@ -171,6 +177,8 @@ export function EventForm({
   const [dirty, setDirty] = useState(false);
   const [pendingDocument, setPendingDocument] =
     useState<EventDocumentSelection | null>(null);
+  const [eventUpload, setEventUpload] = useState<File | null>(null);
+  const [eventUploadError, setEventUploadError] = useState("");
   const [episodeId, setEpisodeId] = useState("");
   const [episodeOptions, setEpisodeOptions] = useState<EpisodeOption[]>([]);
   const [episodesLoading, setEpisodesLoading] = useState(true);
@@ -362,6 +370,41 @@ export function EventForm({
             pendingDocument.source === "new"
               ? uploadPendingDocument(saved.id, pendingDocument.document)
               : attachExistingDocument(saved.id, pendingDocument.document),
+        });
+      if (eventUpload)
+        followUps.push({
+          label: "file upload",
+          run: async () => {
+            const mimeType =
+              eventUpload.type ||
+              attachmentTypes[
+                eventUpload.name.split(".").pop()?.toLowerCase() ?? ""
+              ] ||
+              "";
+            const reserved = await apiFetch<{ attachment: Attachment }>(
+              `/api/v1/events/${saved.id}/attachments`,
+              undefined,
+              {
+                method: "POST",
+                body: {
+                  file_name: eventUpload.name,
+                  mime_type: mimeType,
+                  file_size: eventUpload.size,
+                  attachment_kind: "event_upload",
+                  document_category: "other",
+                },
+              },
+            );
+            const result = await supabase!.storage
+              .from("health-attachments")
+              .upload(reserved.attachment.file_path, eventUpload, {
+                contentType: mimeType,
+                upsert: false,
+                cacheControl: "0",
+              });
+            if (result.error) throw new Error("File upload failed.");
+            return reserved.attachment;
+          },
         });
       if (event || reminders.length)
         followUps.push({
@@ -1359,6 +1402,38 @@ export function EventForm({
                     setDirty(true);
                   }}
                 />
+              </div>
+              <div className="form-field">
+                <label htmlFor="event-upload">Upload file</label>
+                <input
+                  id="event-upload"
+                  type="file"
+                  accept="image/*,.pdf,.doc,.docx,.txt,.csv"
+                  onChange={(change) => {
+                    const chosen = change.target.files?.[0] ?? null;
+                    if (!chosen) return;
+                    const mimeType =
+                      chosen.type ||
+                      attachmentTypes[
+                        chosen.name.split(".").pop()?.toLowerCase() ?? ""
+                      ] ||
+                      "";
+                    const issue = attachmentError(
+                      chosen.name,
+                      chosen.size,
+                      mimeType,
+                    );
+                    setEventUploadError(issue ?? "");
+                    setEventUpload(issue ? null : chosen);
+                    setDirty(true);
+                  }}
+                />
+                {eventUpload && (
+                  <span className="field-hint">{eventUpload.name}</span>
+                )}
+                {eventUploadError && (
+                  <p className="field-error">{eventUploadError}</p>
+                )}
               </div>
               {longField("notes")}
               <div>
