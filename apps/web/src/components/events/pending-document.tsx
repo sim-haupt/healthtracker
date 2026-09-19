@@ -42,20 +42,46 @@ export async function uploadPendingDocument(
         mime_type: pending.mimeType,
         file_size: pending.file.size,
         document_category: pending.documentType,
-        attachment_kind: attachmentKind,
+        ...(attachmentKind === "event_upload"
+          ? { attachment_kind: attachmentKind }
+          : {}),
         description: pending.description || null,
         tag_ids: pending.tagIds,
       },
     });
     reserved = result.attachment;
-    const { error } = await supabase!.storage
-      .from("health-attachments")
-      .upload(reserved.file_path, pending.file, {
-        contentType: pending.mimeType,
-        upsert: false,
-        cacheControl: "0",
-      });
-    if (error) throw new Error("Document upload failed.");
+    if (!supabase) throw new Error("File storage is not configured.");
+    const storageClient = supabase;
+    const uploadFile =
+      pending.file.type === pending.mimeType
+        ? pending.file
+        : new File([pending.file], pending.file.name, {
+            type: pending.mimeType,
+            lastModified: pending.file.lastModified,
+          });
+    const upload = () =>
+      storageClient.storage
+        .from("health-attachments")
+        .upload(reserved!.file_path, uploadFile, {
+          contentType: pending.mimeType,
+          upsert: false,
+          cacheControl: "0",
+        });
+    let { error } = await upload();
+    const uploadStatus = Number(
+      (error as { statusCode?: string | number } | null)?.statusCode,
+    );
+    if (error && (uploadStatus === 401 || uploadStatus === 403)) {
+      const refreshed = await storageClient.auth.refreshSession();
+      if (!refreshed.error && refreshed.data.session)
+        ({ error } = await upload());
+    }
+    if (error) {
+      const reason = /row.level|unauthor|jwt|permission/i.test(error.message)
+        ? "Your upload session expired. Sign in again and retry."
+        : error.message;
+      throw new Error(`Document upload failed. ${reason}`);
+    }
     return reserved;
   } catch (cause) {
     if (reserved)

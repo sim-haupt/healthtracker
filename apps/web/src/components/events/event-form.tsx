@@ -52,12 +52,7 @@ import {
   type EventDocumentSelection,
 } from "./pending-document";
 import { useTrackerResults, type EventResults } from "../tracker/use-results";
-import { supabase } from "@/lib/supabase";
-import {
-  attachmentError,
-  attachmentTypes,
-  type Attachment,
-} from "@/lib/attachments";
+import { attachmentError, attachmentTypes } from "@/lib/attachments";
 
 type EpisodeOption = {
   id: string;
@@ -439,36 +434,24 @@ export function EventForm({
       for (const eventUpload of eventUploads)
         followUps.push({
           label: "file upload",
-          run: async () => {
+          run: () => {
             const mimeType =
               eventUpload.type ||
               attachmentTypes[
                 eventUpload.name.split(".").pop()?.toLowerCase() ?? ""
               ] ||
               "";
-            const reserved = await apiFetch<{ attachment: Attachment }>(
-              `/api/v1/events/${saved.id}/attachments`,
-              undefined,
+            return uploadPendingDocument(
+              saved.id,
               {
-                method: "POST",
-                body: {
-                  file_name: eventUpload.name,
-                  mime_type: mimeType,
-                  file_size: eventUpload.size,
-                  attachment_kind: "event_upload",
-                  document_category: "other",
-                },
+                file: eventUpload,
+                mimeType,
+                documentType: "other",
+                description: "",
+                tagIds: [],
               },
+              "event_upload",
             );
-            const result = await supabase!.storage
-              .from("health-attachments")
-              .upload(reserved.attachment.file_path, eventUpload, {
-                contentType: mimeType,
-                upsert: false,
-                cacheControl: "0",
-              });
-            if (result.error) throw new Error("File upload failed.");
-            return reserved.attachment;
           },
         });
       if (event || reminders.length)
