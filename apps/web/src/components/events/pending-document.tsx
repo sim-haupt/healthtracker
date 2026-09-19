@@ -71,15 +71,17 @@ export async function uploadPendingDocument(
     const uploadStatus = Number(
       (error as { statusCode?: string | number } | null)?.statusCode,
     );
-    if (error && (uploadStatus === 401 || uploadStatus === 403)) {
+    if (error && uploadStatus === 401) {
       const refreshed = await storageClient.auth.refreshSession();
       if (!refreshed.error && refreshed.data.session)
         ({ error } = await upload());
     }
     if (error) {
-      const reason = /row.level|unauthor|jwt|permission/i.test(error.message)
-        ? "Your upload session expired. Sign in again and retry."
-        : error.message;
+      const reason = /row.level|permission/i.test(error.message)
+        ? "File storage rejected the upload. Please try again shortly."
+        : /unauthor|jwt/i.test(error.message)
+          ? "Your session could not authorize this upload. Refresh the page and retry."
+          : error.message;
       throw new Error(`Document upload failed. ${reason}`);
     }
     return reserved;
