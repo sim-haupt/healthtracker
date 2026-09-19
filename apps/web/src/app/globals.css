@@ -6863,13 +6863,23 @@ h3 {
 .structured-form-dialog {
   width: min(720px, calc(100vw - 32px));
   max-width: 720px;
-  overflow: visible;
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow: hidden;
   padding: 0;
   border-radius: 12px;
+  box-sizing: border-box;
 }
 .structured-form-dialog > form {
+  min-height: 0;
+  max-height: calc(100vh - 68px);
+  max-height: calc(100dvh - 68px);
   margin: 0;
   padding: 18px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .structured-form-dialog .form-field,
 .structured-form-dialog .field {
@@ -6884,16 +6894,50 @@ h3 {
   gap: 0 16px;
 }
 .document-upload-dialog > form > .form-error,
-.document-upload-dialog > form > .form-actions {
+.structured-form-dialog > form > .form-actions {
   grid-column: 1 / -1;
 }
+.document-upload-dialog > form > .form-actions {
+  position: sticky;
+  z-index: 4;
+  bottom: -18px;
+  margin: 18px -18px -18px;
+  padding: 12px 18px 18px;
+  border-top: 1px solid var(--line);
+  background: white;
+  box-shadow: 0 -8px 18px #0054610a;
+}
 @media (max-width: 640px) {
+  .structured-form-dialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+    border-radius: 10px;
+  }
+  .structured-form-dialog > h2 {
+    flex: 0 0 auto;
+  }
+  .structured-form-dialog > form {
+    max-height: calc(100vh - 58px);
+    max-height: calc(100dvh - 58px);
+    padding: 14px;
+  }
   .document-upload-dialog > form {
     grid-template-columns: 1fr;
   }
   .document-upload-dialog > form > .form-error,
-  .document-upload-dialog > form > .form-actions {
+  .structured-form-dialog > form > .form-actions {
     grid-column: auto;
+  }
+  .document-upload-dialog > form > .form-actions {
+    bottom: -14px;
+    display: grid;
+    grid-template-columns: 1fr;
+    margin: 14px -14px -14px;
+    padding: 12px 14px max(14px, env(safe-area-inset-bottom));
+  }
+  .structured-form-dialog > form > .form-actions .button {
+    width: 100%;
   }
 }
 
