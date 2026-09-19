@@ -829,18 +829,11 @@ export function EventForm({
                   value={draft.event_date}
                   invalid={!!errors.event_date}
                   onChange={(value) => update("event_date", value)}
+                  allowTimeToggle={type !== "Doctor Visit"}
+                  timeEnabled={timeEnabled}
+                  onTimeToggle={toggleTime}
                 />
                 {feedback("event_date")}
-                {type !== "Doctor Visit" && (
-                  <label className="date-time-toggle">
-                    <input
-                      type="checkbox"
-                      checked={timeEnabled}
-                      onChange={(change) => toggleTime(change.target.checked)}
-                    />
-                    Add time
-                  </label>
-                )}
               </div>
               <div className="form-field basic-end">
                 <label htmlFor="end_date">End date</label>

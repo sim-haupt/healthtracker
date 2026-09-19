@@ -277,6 +277,9 @@ export function DatePicker({
   invalid = false,
   ariaLabel,
   placeholder = "Choose a date",
+  allowTimeToggle = false,
+  timeEnabled = mode === "datetime",
+  onTimeToggle,
 }: {
   id: string;
   value: string;
@@ -288,6 +291,9 @@ export function DatePicker({
   invalid?: boolean;
   ariaLabel?: string;
   placeholder?: string;
+  allowTimeToggle?: boolean;
+  timeEnabled?: boolean;
+  onTimeToggle?: (enabled: boolean) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const selectedDay = parseDay(value.slice(0, 10));
@@ -299,6 +305,26 @@ export function DatePicker({
   );
   const [time, setTime] = useState(value.slice(11, 16) || "09:00");
   const days = useMemo(() => monthDays(month), [month]);
+  const years = useMemo(() => {
+    const first = 1900;
+    const last = new Date().getFullYear() + 20;
+    const values = Array.from(
+      { length: last - first + 1 },
+      (_, index) => first + index,
+    );
+    return values.includes(month.getFullYear())
+      ? values
+      : [...values, month.getFullYear()].sort((a, b) => a - b);
+  }, [month]);
+  const months = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, index) =>
+        new Date(2024, index, 1).toLocaleDateString(localeCode(), {
+          month: "long",
+        }),
+      ),
+    [],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -367,28 +393,44 @@ export function DatePicker({
             >
               <ChevronLeft size={17} />
             </button>
-            <strong>
-              {month.toLocaleDateString(localeCode(), { month: "long" })}
-            </strong>
-            <select
-              className="date-picker-year"
-              aria-label="Select year"
-              value={month.getFullYear()}
-              onChange={(event) =>
-                setMonth(
-                  new Date(Number(event.target.value), month.getMonth(), 1),
-                )
-              }
-            >
-              {Array.from(
-                { length: 201 },
-                (_, index) => new Date().getFullYear() - 100 + index,
-              ).map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
+            <div className="date-picker-period">
+              <select
+                className="date-picker-month-select"
+                aria-label="Select month"
+                value={month.getMonth()}
+                onChange={(event) =>
+                  setMonth(
+                    new Date(
+                      month.getFullYear(),
+                      Number(event.target.value),
+                      1,
+                    ),
+                  )
+                }
+              >
+                {months.map((label, index) => (
+                  <option key={label} value={index}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="date-picker-year"
+                aria-label="Select year"
+                value={month.getFullYear()}
+                onChange={(event) =>
+                  setMonth(
+                    new Date(Number(event.target.value), month.getMonth(), 1),
+                  )
+                }
+              >
+                {years.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
             <button
               type="button"
               aria-label="Next month"
@@ -422,6 +464,23 @@ export function DatePicker({
               );
             })}
           </div>
+          {allowTimeToggle && onTimeToggle && (
+            <button
+              type="button"
+              className="date-picker-time-toggle"
+              role="switch"
+              aria-checked={timeEnabled}
+              onClick={() => onTimeToggle(!timeEnabled)}
+            >
+              <span>
+                <strong>Add time</strong>
+                <small>Include a specific time for this event</small>
+              </span>
+              <span className="date-picker-switch" aria-hidden="true">
+                <span />
+              </span>
+            </button>
+          )}
           {mode === "datetime" && (
             <div className="date-picker-time">
               <label htmlFor={`${id}-time`}>Time</label>
