@@ -28,6 +28,18 @@ export type PickerOption = {
   disabled?: boolean;
 };
 
+function validTime(value: string) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+function snapTimeToFiveMinutes(value: string) {
+  if (!validTime(value)) return value;
+  const [hours, minutes] = value.split(":").map(Number);
+  const rounded = Math.round((hours * 60 + minutes) / 5) * 5;
+  const bounded = Math.min(rounded, 23 * 60 + 55);
+  return `${String(Math.floor(bounded / 60)).padStart(2, "0")}:${String(bounded % 60).padStart(2, "0")}`;
+}
+
 export function CustomSelect({
   id,
   value,
@@ -342,6 +354,13 @@ export function DatePicker({
     if (mode === "date") setOpen(false);
   }
 
+  function commitTime(value: string) {
+    if (!selectedDay || !validTime(value)) return;
+    const snapped = snapTimeToFiveMinutes(value);
+    setTime(snapped);
+    onChange(`${dayKey(selectedDay)}T${snapped}:00`);
+  }
+
   const display = value
     ? mode === "datetime"
       ? formatDateTime(new Date(value).toISOString())
@@ -486,25 +505,23 @@ export function DatePicker({
               <label htmlFor={`${id}-time`}>Time</label>
               <input
                 id={`${id}-time`}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-2][0-9]:[0-5][0-9]"
+                type="time"
+                step={300}
                 value={time}
-                maxLength={5}
                 onChange={(event) => {
                   const next = event.target.value;
                   setTime(next);
-                  if (selectedDay && /^([01]\d|2[0-3]):[0-5]\d$/.test(next))
-                    onChange(`${dayKey(selectedDay)}T${next}:00`);
                 }}
+                onBlur={() => commitTime(time)}
               />
               <button
                 type="button"
                 className="button"
-                disabled={
-                  !selectedDay || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)
-                }
-                onClick={() => setOpen(false)}
+                disabled={!selectedDay || !validTime(time)}
+                onClick={() => {
+                  commitTime(time);
+                  setOpen(false);
+                }}
               >
                 Done
               </button>

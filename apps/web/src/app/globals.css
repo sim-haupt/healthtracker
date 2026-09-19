@@ -5941,6 +5941,9 @@ h3 {
   padding: 8px 10px;
   border: 1px solid var(--control-border);
   border-radius: 7px;
+  background: white;
+  color: var(--ink);
+  color-scheme: light;
   font: inherit;
 }
 .date-picker-time .button {
