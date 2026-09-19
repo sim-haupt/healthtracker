@@ -35,7 +35,7 @@ export function DocumentUpload({
   const dialog = useRef<HTMLDialogElement>(null);
   const toast = useToast();
   const [eventId, setEventId] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [documentType, setDocumentType] = useState<DocumentCategory>("other");
   const [description, setDescription] = useState("");
   const [tagIds, setTagIds] = useState<string[]>([]);
@@ -50,7 +50,7 @@ export function DocumentUpload({
 
   function reset() {
     setEventId("");
-    setFile(null);
+    setFiles([]);
     setDocumentType("other");
     setDescription("");
     setTagIds([]);
@@ -71,15 +71,22 @@ export function DocumentUpload({
       setError("Choose a related event.");
       return;
     }
-    if (!file) {
+    if (!files.length) {
       setError("Choose a document.");
       return;
     }
-    const mimeType =
-      file.type ||
-      attachmentTypes[file.name.split(".").pop()?.toLowerCase() ?? ""] ||
-      "";
-    const issue = attachmentError(file.name, file.size, mimeType);
+    const validated = files.map((file) => {
+      const mimeType =
+        file.type ||
+        attachmentTypes[file.name.split(".").pop()?.toLowerCase() ?? ""] ||
+        "";
+      return {
+        file,
+        mimeType,
+        issue: attachmentError(file.name, file.size, mimeType),
+      };
+    });
+    const issue = validated.find((item) => item.issue)?.issue;
     if (issue) {
       setError(issue);
       return;
@@ -87,13 +94,14 @@ export function DocumentUpload({
     setBusy(true);
     setError("");
     try {
-      await uploadPendingDocument(eventId, {
-        file,
-        mimeType,
-        documentType,
-        description,
-        tagIds,
-      });
+      for (const item of validated)
+        await uploadPendingDocument(eventId, {
+          file: item.file,
+          mimeType: item.mimeType,
+          documentType,
+          description,
+          tagIds,
+        });
       dialog.current?.close();
       reset();
       toast("Document uploaded.");
@@ -132,7 +140,9 @@ export function DocumentUpload({
             documentType={documentType}
             description={description}
             tagIds={tagIds}
-            file={file}
+            file={files[0] ?? null}
+            files={files}
+            multiple
             disabled={busy || tagBusy}
             fileInputKey={fileInputKey}
             onDocumentType={setDocumentType}
@@ -140,7 +150,7 @@ export function DocumentUpload({
             onTags={setTagIds}
             onTagBusyChange={setTagBusy}
             onFile={(chosen) => {
-              setFile(chosen);
+              setFiles(chosen ? [chosen] : []);
               if (!chosen) return;
               const mimeType =
                 chosen.type ||
@@ -151,6 +161,10 @@ export function DocumentUpload({
               setError(
                 attachmentError(chosen.name, chosen.size, mimeType) ?? "",
               );
+            }}
+            onFiles={(chosen) => {
+              setFiles(chosen);
+              setError("");
             }}
             relatedEvent={
               <div className="field document-form-event">

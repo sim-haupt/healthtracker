@@ -18,12 +18,15 @@ export function DocumentFormFields({
   description,
   tagIds,
   file,
+  files,
   disabled,
   relatedEvent,
   onDocumentType,
   onDescription,
   onTags,
   onFile,
+  onFiles,
+  multiple = false,
   onTagBusyChange,
   fileInputKey,
 }: {
@@ -32,12 +35,15 @@ export function DocumentFormFields({
   description: string;
   tagIds: string[];
   file: File | null;
+  files?: File[];
   disabled: boolean;
   relatedEvent?: ReactNode;
   onDocumentType: (value: DocumentCategory) => void;
   onDescription: (value: string) => void;
   onTags: (ids: string[]) => void;
   onFile: (file: File | null) => void;
+  onFiles?: (files: File[]) => void;
+  multiple?: boolean;
   onTagBusyChange: (busy: boolean) => void;
   fileInputKey?: number;
 }) {
@@ -83,18 +89,29 @@ export function DocumentFormFields({
         <label htmlFor={fileId}>Upload file</label>
         <label className="file-choice" htmlFor={fileId}>
           <Paperclip size={17} aria-hidden="true" />
-          <span>{file?.name ?? "Choose file"}</span>
+          <span>
+            {multiple
+              ? files?.length
+                ? `${files.length} file${files.length === 1 ? "" : "s"} selected`
+                : "Choose files"
+              : (file?.name ?? "Choose file")}
+          </span>
         </label>
         <input
           key={fileInputKey}
           id={fileId}
           className="sr-only"
           type="file"
+          multiple={multiple}
           disabled={disabled}
           accept={Object.keys(attachmentTypes)
             .map((extension) => `.${extension}`)
             .join(",")}
-          onChange={(event) => onFile(event.target.files?.[0] ?? null)}
+          onChange={(event) => {
+            const files = Array.from(event.target.files ?? []);
+            if (multiple && onFiles) onFiles(files);
+            else onFile(files[0] ?? null);
+          }}
         />
       </div>
     </div>
