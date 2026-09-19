@@ -2810,6 +2810,28 @@ h3 {
 .event-file-upload-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .event-file-upload-remove { position: absolute; top: 8px; right: 8px; display: grid; width: 26px; height: 26px; padding: 0; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer; }
 .event-file-upload-remove:hover { background: white; color: var(--danger); }
+.event-file-upload-list {
+  display: grid;
+  gap: 4px;
+  margin: 7px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.event-file-upload-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: white;
+  color: var(--ink);
+  font-size: 0.75rem;
+}
+.event-file-upload-list li > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.event-file-upload-list li small { margin-left: auto; color: var(--muted); white-space: nowrap; }
+.event-file-upload-list li .event-file-upload-remove { position: static; flex: 0 0 auto; }
 .event-form .attachment-upload-dialog .file-choice {
   display: flex;
   min-height: 44px;

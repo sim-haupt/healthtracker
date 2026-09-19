@@ -182,7 +182,7 @@ export function EventForm({
   const [dirty, setDirty] = useState(false);
   const [pendingDocument, setPendingDocument] =
     useState<EventDocumentSelection | null>(null);
-  const [eventUpload, setEventUpload] = useState<File | null>(null);
+  const [eventUploads, setEventUploads] = useState<File[]>([]);
   const [eventUploadError, setEventUploadError] = useState("");
   const [episodeId, setEpisodeId] = useState("");
   const [episodeOptions, setEpisodeOptions] = useState<EpisodeOption[]>([]);
@@ -405,7 +405,7 @@ export function EventForm({
               ? uploadPendingDocument(saved.id, pendingDocument.document)
               : attachExistingDocument(saved.id, pendingDocument.document),
         });
-      if (eventUpload)
+      for (const eventUpload of eventUploads)
         followUps.push({
           label: "file upload",
           run: async () => {
@@ -1450,7 +1450,7 @@ export function EventForm({
               <div className="form-field">
                 <span className="field-label">Upload file</span>
                 <div
-                  className={`event-file-upload ${eventUpload ? "has-file" : ""}`}
+                  className={`event-file-upload ${eventUploads.length ? "has-file" : ""}`}
                 >
                   <label
                     className="event-file-upload-choice"
@@ -1461,16 +1461,18 @@ export function EventForm({
                     </span>
                     <span className="event-file-upload-copy">
                       <strong>
-                        {eventUpload ? eventUpload.name : "Choose a file"}
+                        {eventUploads.length
+                          ? `${eventUploads.length} file${eventUploads.length === 1 ? "" : "s"} selected`
+                          : "Choose files"}
                       </strong>
                       <small>
-                        {eventUpload
-                          ? `${(eventUpload.size / 1024 / 1024).toFixed(2)} MB · Ready to upload`
+                        {eventUploads.length
+                          ? "Ready to upload"
                           : "Photos, PDFs, or documents up to 10 MB"}
                       </small>
                     </span>
                     <span className="event-file-upload-action">
-                      {eventUpload ? "Change" : "Browse"}
+                      {eventUploads.length ? "Add more" : "Browse"}
                     </span>
                   </label>
                   <input
@@ -1479,40 +1481,55 @@ export function EventForm({
                     type="file"
                     accept="image/*,.pdf,.doc,.docx,.txt,.csv"
                     onChange={(change) => {
-                      const chosen = change.target.files?.[0] ?? null;
-                      if (!chosen) return;
-                      const mimeType =
-                        chosen.type ||
-                        attachmentTypes[
-                          chosen.name.split(".").pop()?.toLowerCase() ?? ""
-                        ] ||
-                        "";
-                      const issue = attachmentError(
-                        chosen.name,
-                        chosen.size,
-                        mimeType,
-                      );
-                      setEventUploadError(issue ?? "");
-                      setEventUpload(issue ? null : chosen);
+                      const chosen = Array.from(change.target.files ?? []);
+                      if (!chosen.length) return;
+                      const issue =
+                        chosen
+                          .map((file) =>
+                            attachmentError(
+                              file.name,
+                              file.size,
+                              file.type ||
+                                attachmentTypes[
+                                  file.name.split(".").pop()?.toLowerCase() ??
+                                    ""
+                                ] ||
+                                "",
+                            ),
+                          )
+                          .find(Boolean) ?? "";
+                      setEventUploadError(issue);
+                      if (!issue)
+                        setEventUploads((current) => [...current, ...chosen]);
                       setDirty(true);
                     }}
                   />
-                  {eventUpload && (
-                    <button
-                      type="button"
-                      className="event-file-upload-remove"
-                      aria-label="Remove selected file"
-                      title="Remove file"
-                      onClick={() => {
-                        setEventUpload(null);
-                        setEventUploadError("");
-                        setDirty(true);
-                      }}
-                    >
-                      <X size={15} />
-                    </button>
-                  )}
                 </div>
+                {eventUploads.length > 0 && (
+                  <ul className="event-file-upload-list">
+                    {eventUploads.map((file, index) => (
+                      <li key={`${file.name}-${file.lastModified}`}>
+                        <span>{file.name}</span>
+                        <small>{(file.size / 1024 / 1024).toFixed(2)} MB</small>
+                        <button
+                          type="button"
+                          className="event-file-upload-remove"
+                          aria-label={`Remove ${file.name}`}
+                          onClick={() => {
+                            setEventUploads((current) =>
+                              current.filter(
+                                (_, itemIndex) => itemIndex !== index,
+                              ),
+                            );
+                            setDirty(true);
+                          }}
+                        >
+                          <X size={15} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 {eventUploadError && (
                   <p className="field-error">{eventUploadError}</p>
                 )}
