@@ -61,6 +61,7 @@ import { attachmentError, attachmentTypes } from "@/lib/attachments";
 
 type EpisodeOption = {
   id: string;
+  profile_id: string;
   title: string;
   status: "active" | "resolved";
   start_date: string;
@@ -229,6 +230,7 @@ export function EventForm({
   const [reminders, setReminders] = useState<EventReminderDraft[]>([]);
   const [remindersLoading, setRemindersLoading] = useState(!!event);
   const [reminderError, setReminderError] = useState("");
+  const episodeProfile = useRef(draft.profile_id);
   const formRef = useRef<HTMLFormElement>(null);
   const importDialog = useRef<HTMLDialogElement>(null);
   const submitMode = useRef<"save" | "calendar">("save");
@@ -281,18 +283,31 @@ export function EventForm({
   }, [importOpen]);
 
   useEffect(() => {
-    if (!draft.profile_id) return;
+    const profileId = draft.profile_id;
+    if (episodeProfile.current !== profileId) {
+      episodeProfile.current = profileId;
+      setEpisodeOptions([]);
+      setEpisodeId("");
+    }
+    if (!profileId) {
+      setEpisodesLoading(false);
+      return;
+    }
     const controller = new AbortController();
     setEpisodesLoading(true);
     setEpisodeError("");
     apiFetch<{ episodes: EpisodeOption[] }>(
-      "/api/v1/episodes?profile_id=" + draft.profile_id,
+      "/api/v1/episodes?profile_id=" + encodeURIComponent(profileId),
       controller.signal,
     )
       .then(({ episodes }) => {
-        setEpisodeOptions(episodes);
+        if (controller.signal.aborted) return;
+        const matching = episodes.filter(
+          (episode) => episode.profile_id === profileId,
+        );
+        setEpisodeOptions(matching);
         setEpisodeId((current) =>
-          episodes.some((episode) => episode.id === current) ? current : "",
+          matching.some((episode) => episode.id === current) ? current : "",
         );
       })
       .catch((cause) => {
@@ -733,6 +748,9 @@ export function EventForm({
       (value) => !examinationTypeOptions.includes(value),
     ),
   ];
+  const profileEpisodeOptions = episodeOptions.filter(
+    (episode) => episode.profile_id === draft.profile_id,
+  );
 
   function addCustomTestType() {
     const value = customTestType.trim();
@@ -1458,11 +1476,11 @@ export function EventForm({
                       value: "",
                       label: episodesLoading
                         ? "Loading episodes…"
-                        : episodeOptions.length
+                        : profileEpisodeOptions.length
                           ? "No episode"
                           : "No episodes for this profile",
                     },
-                    ...episodeOptions.map((episode) => ({
+                    ...profileEpisodeOptions.map((episode) => ({
                       value: episode.id,
                       label:
                         episode.title +
