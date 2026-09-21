@@ -145,7 +145,7 @@ const primaryFields: Record<EventType, DetailField[]> = {
   Illness: ["symptoms", "description", "treatment"],
   Medication: ["prescription", "description"],
   Vaccination: ["description", "doctor"],
-  "Examination / Test": ["description", "diagnosis", "doctor"],
+  "Examination / Test": ["description", "prescription", "diagnosis", "doctor"],
   Injury: ["description", "symptoms", "treatment"],
   Symptom: ["symptoms", "description"],
   Other: ["description"],
@@ -168,6 +168,8 @@ export function fieldLabel(type: EventType, field: DetailField) {
     return "Reason for the test";
   if (type === "Examination / Test" && field === "diagnosis")
     return "Results / findings";
+  if (type === "Examination / Test" && field === "prescription")
+    return "What was done";
   if (type === "Injury" && field === "description") return "What happened";
   if (type === "Symptom" && field === "description")
     return "How it felt / when it happened";

@@ -173,6 +173,7 @@ const german: Record<string, string> = {
   "Blood test": "Bluttest",
   "Physical examination": "Körperliche Untersuchung",
   Ultrasound: "Ultraschall",
+  EKG: "EKG",
 
   Active: "Aktiv",
   Resolved: "Abgeschlossen",
@@ -373,6 +374,7 @@ const german: Record<string, string> = {
   "Add end date": "Enddatum hinzufügen",
   "Select medical provider": "Medizinische Einrichtung auswählen",
   "Select test type": "Untersuchungsart auswählen",
+  "Select test types": "Untersuchungsarten auswählen",
   "Choose a test type": "Untersuchungsart auswählen",
   "Enter test type": "Untersuchungsart eingeben",
   "Select severity": "Schweregrad auswählen",

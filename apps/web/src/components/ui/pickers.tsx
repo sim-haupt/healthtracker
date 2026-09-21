@@ -173,6 +173,100 @@ export function CustomSelect({
   );
 }
 
+export function MultiSelect({
+  id,
+  values,
+  options,
+  onChange,
+  disabled = false,
+  placeholder = "Select…",
+  ariaLabel,
+  invalid = false,
+}: {
+  id: string;
+  values: string[];
+  options: PickerOption[];
+  onChange: (values: string[]) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  ariaLabel?: string;
+  invalid?: boolean;
+}) {
+  const root = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const selectedLabels = values.map(
+    (value) => options.find((option) => option.value === value)?.label ?? value,
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [open]);
+
+  function toggle(option: PickerOption) {
+    if (option.disabled) return;
+    onChange(
+      values.includes(option.value)
+        ? values.filter((value) => value !== option.value)
+        : [...values, option.value],
+    );
+  }
+
+  return (
+    <div className="custom-select multi-select" ref={root}>
+      <button
+        id={id}
+        type="button"
+        className="custom-select-trigger"
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-invalid={invalid || undefined}
+        disabled={disabled}
+        onClick={() => setOpen((current) => !current)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") setOpen(false);
+        }}
+      >
+        <span>
+          {selectedLabels.length ? selectedLabels.join(", ") : placeholder}
+        </span>
+        <ChevronDown size={16} aria-hidden="true" />
+      </button>
+      {open && (
+        <div
+          className="custom-select-menu multi-select-menu"
+          role="listbox"
+          aria-labelledby={id}
+          aria-multiselectable="true"
+        >
+          {options.map((option) => {
+            const selected = values.includes(option.value);
+            return (
+              <button
+                type="button"
+                role="option"
+                aria-selected={selected}
+                disabled={option.disabled}
+                className={selected ? "selected" : ""}
+                key={option.value}
+                onClick={() => toggle(option)}
+              >
+                <span>{option.content ?? option.label}</span>
+                {selected && <Check size={15} aria-hidden="true" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SearchableSelect({
   id,
   value,

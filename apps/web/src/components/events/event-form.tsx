@@ -41,7 +41,12 @@ import { ProviderEditor } from "../providers";
 import type { Provider } from "@/lib/providers";
 import { EventLabelEditor } from "../tracker/event-label-editor";
 import { useToast, ConfirmDialog } from "../ui/feedback";
-import { CustomSelect, DatePicker, SearchableSelect } from "../ui/pickers";
+import {
+  CustomSelect,
+  DatePicker,
+  MultiSelect,
+  SearchableSelect,
+} from "../ui/pickers";
 import { ProfileIdentity } from "../ui/profile-avatar";
 import { RichTextEditor } from "../ui/rich-text";
 import { useEvent } from "./use-event";
@@ -76,7 +81,16 @@ const examinationTypeOptions = [
   "X-ray",
   "Ultrasound",
   "Physical examination",
+  "EKG",
 ];
+const examinationTypeSeparator = " • ";
+
+function examinationTypes(value: string) {
+  return value
+    .split(examinationTypeSeparator)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
 function googleCalendarDay(value: string) {
   return value.slice(0, 10).replaceAll("-", "");
@@ -190,6 +204,7 @@ export function EventForm({
   const [importError, setImportError] = useState("");
   const [importing, setImporting] = useState(false);
   const [addingTestType, setAddingTestType] = useState(false);
+  const [customTestType, setCustomTestType] = useState("");
   const [draft, setDraft] = useState<EventDraft>(() => ({
     ...eventDraft(event, activeProfile?.id ?? profiles[0]?.id, initialDate),
     ...(!event && initialType ? { event_type: initialType } : {}),
@@ -711,11 +726,26 @@ export function EventForm({
     );
   }
 
-  const examinationTypeIsPreset = examinationTypeOptions.includes(
-    draft.test_type,
-  );
-  const showCustomTestType =
-    addingTestType || (!!draft.test_type.trim() && !examinationTypeIsPreset);
+  const selectedExaminationTypes = examinationTypes(draft.test_type);
+  const availableExaminationTypes = [
+    ...examinationTypeOptions,
+    ...selectedExaminationTypes.filter(
+      (value) => !examinationTypeOptions.includes(value),
+    ),
+  ];
+
+  function addCustomTestType() {
+    const value = customTestType.trim();
+    if (!value) return;
+    update(
+      "test_type",
+      [...new Set([...selectedExaminationTypes, value])].join(
+        examinationTypeSeparator,
+      ),
+    );
+    setCustomTestType("");
+    setAddingTestType(false);
+  }
 
   const detailsTitle =
     type === "Doctor Visit"
@@ -1098,22 +1128,18 @@ export function EventForm({
               <div className="event-section-grid event-test-details-grid event-medical-grid">
                 <div className="form-field event-test-type-field">
                   <label htmlFor="test_type">Test / examination type</label>
-                  <CustomSelect
+                  <MultiSelect
                     id="test_type"
-                    value={examinationTypeIsPreset ? draft.test_type : ""}
-                    placeholder="Choose a test type"
+                    values={selectedExaminationTypes}
+                    placeholder="Select test types"
                     invalid={!!errors.test_type}
-                    onChange={(value) => {
-                      setAddingTestType(false);
-                      update("test_type", value);
-                    }}
-                    options={[
-                      { value: "", label: "Select test type" },
-                      ...examinationTypeOptions.map((option) => ({
-                        value: option,
-                        label: option,
-                      })),
-                    ]}
+                    onChange={(values) =>
+                      update("test_type", values.join(examinationTypeSeparator))
+                    }
+                    options={availableExaminationTypes.map((option) => ({
+                      value: option,
+                      label: option,
+                    }))}
                   />
                   <div className="provider-add-row">
                     <button
@@ -1121,27 +1147,45 @@ export function EventForm({
                       className="text-link"
                       onClick={() => {
                         setAddingTestType(true);
-                        if (examinationTypeIsPreset) update("test_type", "");
+                        setCustomTestType("");
                       }}
                     >
                       <Plus size={14} aria-hidden="true" /> Add test type
                     </button>
                   </div>
-                  {showCustomTestType && (
-                    <input
-                      {...fieldProps("test_type")}
-                      className="event-custom-test-type"
-                      maxLength={300}
-                      placeholder="Enter test type"
-                      onChange={(change) =>
-                        update("test_type", change.target.value)
-                      }
-                    />
+                  {addingTestType && (
+                    <div className="event-custom-test-type-row">
+                      <input
+                        className="event-custom-test-type"
+                        maxLength={300}
+                        value={customTestType}
+                        aria-label="New test type"
+                        placeholder="Enter test type"
+                        onChange={(change) =>
+                          setCustomTestType(change.target.value)
+                        }
+                        onKeyDown={(key) => {
+                          if (key.key === "Enter") {
+                            key.preventDefault();
+                            addCustomTestType();
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="button secondary-button"
+                        disabled={!customTestType.trim()}
+                        onClick={addCustomTestType}
+                      >
+                        Add
+                      </button>
+                    </div>
                   )}
                   {feedback("test_type")}
                 </div>
                 {providerField("Medical provider / facility")}
                 {longField("description", "Reason for test")}
+                {longField("prescription", "What was done")}
                 {longField("diagnosis", "Results / findings")}
                 {longField("treatment", "Follow-up / next steps")}
               </div>

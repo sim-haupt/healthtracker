@@ -2778,7 +2778,17 @@ h3 {
   grid-column: span 2;
 }
 .event-form .event-custom-test-type {
+  margin: 0;
+}
+.event-custom-test-type-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
   margin-top: 8px;
+}
+.event-custom-test-type-row .button {
+  min-height: 44px;
 }
 .event-form .provider-add-row {
   display: flex;

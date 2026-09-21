@@ -58,6 +58,7 @@ function detailSections(event: HealthEvent): DetailSection[] {
         icon: ClipboardCheck,
       },
       { field: "description", title: "Reason for test", icon: FileText },
+      { field: "prescription", title: "What was done", icon: Stethoscope },
       { field: "diagnosis", title: "Results / findings", icon: ClipboardCheck },
       {
         field: "treatment",
