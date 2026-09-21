@@ -1,12 +1,115 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Download, ExternalLink, FileText, Paperclip } from "lucide-react";
+import {
+  Download,
+  ExternalLink,
+  FileText,
+  Paperclip,
+  Pencil,
+} from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { type Attachment } from "@/lib/attachments";
-import { categoryLabel, documentTitle } from "@/lib/documents";
+import {
+  categoryLabel,
+  documentTitle,
+  type HealthDocument,
+} from "@/lib/documents";
+import type { EventSummary } from "@/lib/events";
 import { DocumentCategoryPill } from "../ui/labels";
 import { RichTextContent } from "../ui/rich-text";
+import { DocumentEditButton } from "../document-editor";
+import { useProfiles } from "../app-shell";
+
+function EventDocumentEditButton({
+  sourceEventId,
+  documentGroupId,
+  onUpdated,
+}: {
+  sourceEventId: string;
+  documentGroupId: string;
+  onUpdated: () => void;
+}) {
+  const { profiles } = useProfiles();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [editor, setEditor] = useState<{
+    key: number;
+    document: HealthDocument;
+    events: EventSummary[];
+  } | null>(null);
+
+  async function edit() {
+    if (loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      const result = await apiFetch<{ documents: HealthDocument[] }>(
+        "/api/v1/documents/search",
+        undefined,
+        {
+          method: "POST",
+          body: { event_id: sourceEventId, page: 1, page_size: 100 },
+        },
+      );
+      const document = result.documents.find(
+        (item) => item.document_group_id === documentGroupId,
+      );
+      if (!document)
+        throw new Error("Document not found or no longer available.");
+      const eventResult = await apiFetch<{
+        events: EventSummary[];
+        total: number;
+      }>("/api/v1/events/search", undefined, {
+        method: "POST",
+        body: {
+          profile_id: document.profile_id,
+          page: 1,
+          page_size: 100,
+        },
+      });
+      setEditor({ key: Date.now(), document, events: eventResult.events });
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Unable to edit document.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="button secondary-button"
+        disabled={loading}
+        onClick={edit}
+      >
+        <Pencil size={16} /> {loading ? "Opening…" : "Edit"}
+      </button>
+      {error && (
+        <p className="field-error" role="alert">
+          {error}
+        </p>
+      )}
+      {editor && (
+        <DocumentEditButton
+          key={editor.key}
+          document={editor.document}
+          events={editor.events}
+          profiles={profiles}
+          hideTrigger
+          openOnMount
+          onUpdated={() => {
+            setEditor(null);
+            onUpdated();
+          }}
+        />
+      )}
+    </>
+  );
+}
 
 function AttachmentItem({
   item,
@@ -298,6 +401,11 @@ export function EventAttachments({
                           documentTitle(files[0])
                         )}
                       </div>
+                      <EventDocumentEditButton
+                        sourceEventId={files[0].health_event_id}
+                        documentGroupId={groupId}
+                        onUpdated={load}
+                      />
                     </div>
                     <ul className="attachment-list">
                       {files.map((item) => (

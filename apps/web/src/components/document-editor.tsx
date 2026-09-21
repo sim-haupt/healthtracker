@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Pencil, Save } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
@@ -29,11 +29,15 @@ export function DocumentEditButton({
   document,
   events,
   profiles,
+  hideTrigger = false,
+  openOnMount = false,
   onUpdated,
 }: {
   document: HealthDocument;
   events: EventSummary[];
   profiles: HealthProfile[];
+  hideTrigger?: boolean;
+  openOnMount?: boolean;
   onUpdated: () => void;
 }) {
   const toast = useToast();
@@ -60,6 +64,10 @@ export function DocumentEditButton({
   const selectedProfile = profiles.find(
     (profile) => profile.id === selectedEvent?.profile_id,
   );
+
+  useEffect(() => {
+    if (openOnMount) dialog.current?.showModal();
+  }, [openOnMount]);
 
   function reset() {
     setDocumentType(document.document_category);
@@ -223,13 +231,15 @@ export function DocumentEditButton({
 
   return (
     <>
-      <button
-        type="button"
-        className="button secondary-button"
-        onClick={beginEdit}
-      >
-        <Pencil size={16} /> Edit
-      </button>
+      {!hideTrigger && (
+        <button
+          type="button"
+          className="button secondary-button"
+          onClick={beginEdit}
+        >
+          <Pencil size={16} /> Edit
+        </button>
+      )}
       <dialog
         ref={dialog}
         className="delete-dialog attachment-upload-dialog document-upload-dialog structured-form-dialog document-edit-dialog"
