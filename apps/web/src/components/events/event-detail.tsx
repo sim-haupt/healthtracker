@@ -12,6 +12,7 @@ import {
   NotebookPen,
   FileText,
   Bell,
+  Copy,
 } from "lucide-react";
 import { EventAttachments } from "./attachments";
 import Link from "next/link";
@@ -240,6 +241,14 @@ export function EventDetail({ id }: { id: string }) {
           <h1>{eventDisplayTitle(event)}</h1>
         </div>
         <div className="event-actions">
+          <Link
+            className="icon-button"
+            href={`/events/new?duplicate=${event.id}`}
+            aria-label="Duplicate event"
+            title="Duplicate"
+          >
+            <Copy size={17} aria-hidden="true" />
+          </Link>
           <Link
             className="icon-button"
             href={`/events/${event.id}/edit`}

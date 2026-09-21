@@ -184,12 +184,37 @@ export function EditEvent({ id }: { id: string }) {
   return <EventForm key={event.id} event={event} />;
 }
 
+export function DuplicateEvent({ id }: { id: string }) {
+  const { event, error, retry } = useEvent(id);
+  if (error)
+    return (
+      <section className="card event-state" role="alert">
+        <p>{error}</p>
+        <button className="button secondary-button" onClick={retry}>
+          Try again
+        </button>
+        <Link className="text-link" href="/timeline">
+          Back to timeline
+        </Link>
+      </section>
+    );
+  if (!event)
+    return (
+      <p className="event-state" role="status">
+        Loading event…
+      </p>
+    );
+  return <EventForm key={event.id} duplicateSource={event} />;
+}
+
 export function EventForm({
   event,
+  duplicateSource,
   initialDate,
   initialType,
 }: {
   event?: HealthEvent;
+  duplicateSource?: HealthEvent;
   initialDate?: string;
   initialType?: EventType;
 }) {
@@ -207,7 +232,12 @@ export function EventForm({
   const [addingTestType, setAddingTestType] = useState(false);
   const [customTestType, setCustomTestType] = useState("");
   const [draft, setDraft] = useState<EventDraft>(() => ({
-    ...eventDraft(event, activeProfile?.id ?? profiles[0]?.id, initialDate),
+    ...eventDraft(
+      event ?? duplicateSource,
+      activeProfile?.id ?? profiles[0]?.id,
+      initialDate,
+    ),
+    ...(duplicateSource ? { related_symptom_id: "" } : {}),
     ...(!event && initialType ? { event_type: initialType } : {}),
   }));
   const [timeEnabled, setTimeEnabled] = useState(
@@ -235,10 +265,16 @@ export function EventForm({
   const importDialog = useRef<HTMLDialogElement>(null);
   const submitMode = useRef<"save" | "calendar">("save");
   const type = draft.event_type as EventType;
+  const sourceEventType = event?.event_type ?? duplicateSource?.event_type;
+  const returnPath = event
+    ? "/events/" + event.id
+    : duplicateSource
+      ? "/events/" + duplicateSource.id
+      : "/timeline";
   const availableTypeOptions = typeOptions.types.filter(
     (option) =>
       (!option.archived && isUserEventType(option)) ||
-      event?.event_type === option.key ||
+      sourceEventType === option.key ||
       (!event && initialType === "Vaccination" && option.key === "Vaccination"),
   );
   const medicalFields: DetailField[] = [
@@ -414,7 +450,7 @@ export function EventForm({
       !availableTypeOptions.some(
         (option) =>
           option.key === draft.event_type &&
-          (!option.archived || event?.event_type === option.key),
+          (!option.archived || sourceEventType === option.key),
       )
     )
       issues.event_type = "Choose an available event type.";
@@ -549,7 +585,7 @@ export function EventForm({
 
   function cancel() {
     if (dirty) setDiscard(true);
-    else router.push(event ? "/events/" + event.id : "/timeline");
+    else router.push(returnPath);
   }
 
   const feedback = (name: string) =>
@@ -777,11 +813,18 @@ export function EventForm({
   return (
     <>
       <button type="button" className="text-link event-back" onClick={cancel}>
-        <ArrowLeft size={16} /> {event ? "Back to event" : "Back to timeline"}
+        <ArrowLeft size={16} />{" "}
+        {event || duplicateSource ? "Back to event" : "Back to timeline"}
       </button>
       <div className="page-heading">
         <div>
-          <h1>{event ? "Edit event" : "Add event"}</h1>
+          <h1>
+            {event
+              ? "Edit event"
+              : duplicateSource
+                ? "Duplicate event"
+                : "Add event"}
+          </h1>
         </div>
       </div>
       <div className="event-form-toolbar">
@@ -1824,9 +1867,7 @@ export function EventForm({
           action="Discard changes"
           busy={false}
           onClose={() => setDiscard(false)}
-          onConfirm={() =>
-            router.push(event ? "/events/" + event.id : "/timeline")
-          }
+          onConfirm={() => router.push(returnPath)}
         />
       )}
       {addingProvider && (

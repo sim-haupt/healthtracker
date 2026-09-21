@@ -356,6 +356,8 @@ const german: Record<string, string> = {
   "Something didn’t load": "Etwas konnte nicht geladen werden",
 
   "Edit event": "Ereignis bearbeiten",
+  "Duplicate event": "Ereignis duplizieren",
+  Duplicate: "Duplizieren",
   "Create event": "Ereignis erstellen",
   "Save changes": "Änderungen speichern",
   "Create and add to Calendar": "Erstellen und zum Kalender hinzufügen",
