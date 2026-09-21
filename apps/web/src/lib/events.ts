@@ -184,6 +184,21 @@ export function localDateTime(iso: string) {
 export function dateLabel(value: string) {
   return formatDateTime(value);
 }
+
+function draftDate(value: string) {
+  return parseDay(value) ?? new Date(value);
+}
+
+function validDraftDate(value: string) {
+  const dateOnly = parseDay(value);
+  if (dateOnly) return true;
+  return (
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(value) &&
+    !Number.isNaN(new Date(value).getTime()) &&
+    localDateTime(new Date(value).toISOString()) ===
+      (value.length === 16 ? `${value}:00` : value)
+  );
+}
 export type EventDraft = Record<
   Exclude<
     keyof EventInput,
@@ -301,20 +316,15 @@ export function validateDraft(
   if (!draft.title.trim()) errors.title = "Enter a title.";
   else if (draft.title.trim().length > 300)
     errors.title = "Use 300 characters or fewer.";
-  const validDate = (value: string) =>
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(value) &&
-    !Number.isNaN(new Date(value).getTime()) &&
-    localDateTime(new Date(value).toISOString()) ===
-      (value.length === 16 ? `${value}:00` : value);
-  if (draft.event_date && !validDate(draft.event_date))
-    errors.event_date = "Enter a valid start date and local time.";
-  if (draft.end_date && !validDate(draft.end_date))
-    errors.end_date = "Enter a valid end date and local time.";
+  if (draft.event_date && !validDraftDate(draft.event_date))
+    errors.event_date = "Enter a valid start date.";
+  if (draft.end_date && !validDraftDate(draft.end_date))
+    errors.end_date = "Enter a valid end date.";
   else if (
     draft.event_date &&
     draft.end_date &&
     !errors.event_date &&
-    new Date(draft.end_date) < new Date(draft.event_date)
+    draftDate(draft.end_date) < draftDate(draft.event_date)
   )
     errors.end_date = "End date must be on or after the start date.";
   for (const field of detailFields) {
@@ -331,7 +341,7 @@ export function draftInput(
   const dateValue = (value: string, previous?: string | null) =>
     previous && value === localDateTime(previous)
       ? previous
-      : new Date(value).toISOString();
+      : draftDate(value).toISOString();
   const eventDate =
     draft.event_date ||
     draft.end_date ||

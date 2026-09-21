@@ -15,6 +15,7 @@ import {
   eventDraft,
   draftInput,
   validateDraft,
+  localDateTime,
   eventTypes as formTypes,
 } from "../../web/src/lib/events.js";
 const uuid = (n: number) =>
@@ -342,6 +343,21 @@ test("all supported types round-trip their simple form fields without losing hid
   draft.event_date = "";
   assert.equal(validateDraft(draft, [profile1]).event_date, undefined);
   assert.ok(!Number.isNaN(Date.parse(draftInput(draft).event_date)));
+  draft.event_date = "2026-09-19";
+  draft.end_date = "2026-09-20";
+  assert.equal(validateDraft(draft, [profile1]).event_date, undefined);
+  assert.equal(validateDraft(draft, [profile1]).end_date, undefined);
+  const dateOnlyInput = draftInput(draft);
+  assert.equal(
+    localDateTime(dateOnlyInput.event_date).slice(0, 10),
+    "2026-09-19",
+  );
+  assert.equal(
+    localDateTime(dateOnlyInput.end_date ?? "").slice(0, 10),
+    "2026-09-20",
+  );
+  draft.event_date = "2026-02-30";
+  assert.ok(validateDraft(draft, [profile1]).event_date);
   draft.event_date = eventDraft(undefined, profile1).event_date;
   draft.end_date = "2000-01-01T10:00:00";
   assert.ok(validateDraft(draft, [profile1]).end_date);
