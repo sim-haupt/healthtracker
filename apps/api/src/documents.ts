@@ -21,6 +21,7 @@ export type HealthDocument = Attachment & {
   event_date: string;
   event_category: Label | null;
   tags: Label[];
+  provider: { id: string; name: string; specialty: string | null } | null;
 };
 
 export const documentListSchema = z
@@ -58,6 +59,7 @@ export type DocumentDataAccess = {
     input: {
       document_category: (typeof documentCategories)[number];
       description: string | null;
+      provider_id: string | null;
     },
   ) => Promise<boolean>;
 };
@@ -80,6 +82,7 @@ export function documentRouter() {
     const parsed = z
       .object({
         document_category: z.enum(documentCategories),
+        provider_id: z.uuid("Choose an available medical provider.").nullable(),
         description: z
           .string()
           .trim()

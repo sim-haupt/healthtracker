@@ -60,6 +60,7 @@ test("attachment routes authenticate, validate ownership and scope deletion to t
         assert.equal(owner, "owner");
         assert.equal(input.document_category, "lab result");
         assert.equal(input.description, "Annual blood work");
+        assert.equal(input.provider_id, tagId);
         assert.deepEqual(input.tag_ids, [tagId]);
         return {
           id: attachmentId,
@@ -96,7 +97,10 @@ test("attachment routes authenticate, validate ownership and scope deletion to t
     await request(app)
       [method](method === "delete" ? `${base}/${attachmentId}` : base)
       .expect(401);
-  await request(app).post(`${base}/link`).send({ document_id: attachmentId }).expect(401);
+  await request(app)
+    .post(`${base}/link`)
+    .send({ document_id: attachmentId })
+    .expect(401);
   await request(app).get(base).set("Authorization", "Bearer other").expect(404);
   await request(app)
     .post(base)
@@ -123,6 +127,7 @@ test("attachment routes authenticate, validate ownership and scope deletion to t
       file_size: 100,
       document_category: "lab result",
       description: "Annual blood work",
+      provider_id: tagId,
       tag_ids: [tagId],
     })
     .expect(201);

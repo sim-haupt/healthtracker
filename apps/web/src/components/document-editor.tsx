@@ -12,6 +12,7 @@ import { categoryLabel } from "@/lib/documents";
 import { useToast } from "./ui/feedback";
 import { CustomSelect } from "./ui/pickers";
 import { RichTextEditor } from "./ui/rich-text";
+import { useProviders } from "./providers-context";
 
 export function DocumentEditButton({
   document,
@@ -19,22 +20,25 @@ export function DocumentEditButton({
 }: {
   document: Pick<
     Attachment,
-    "document_group_id" | "document_category" | "description"
+    "document_group_id" | "document_category" | "description" | "provider_id"
   >;
   onUpdated: () => void;
 }) {
   const toast = useToast();
+  const providers = useProviders();
   const dialog = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState(false);
   const [documentType, setDocumentType] = useState<DocumentCategory>(
     document.document_category,
   );
   const [description, setDescription] = useState(document.description ?? "");
+  const [providerId, setProviderId] = useState(document.provider_id ?? "");
   const [error, setError] = useState("");
 
   function beginEdit() {
     setDocumentType(document.document_category);
     setDescription(document.description ?? "");
+    setProviderId(document.provider_id ?? "");
     setError("");
     dialog.current?.showModal();
   }
@@ -53,6 +57,7 @@ export function DocumentEditButton({
           body: {
             document_category: documentType,
             description: description.trim() || null,
+            provider_id: providerId || null,
           },
         },
       );
@@ -105,6 +110,51 @@ export function DocumentEditButton({
                 label: categoryLabel(category),
               }))}
             />
+          </div>
+          <div className="field">
+            <label
+              htmlFor={`edit-document-provider-${document.document_group_id}`}
+            >
+              Medical provider
+            </label>
+            <CustomSelect
+              id={`edit-document-provider-${document.document_group_id}`}
+              value={providerId}
+              disabled={busy || providers.loading}
+              onChange={setProviderId}
+              options={[
+                { value: "", label: "Select medical provider" },
+                ...(providerId &&
+                !providers.providers.some(
+                  (provider) => provider.id === providerId,
+                )
+                  ? [
+                      {
+                        value: providerId,
+                        label: "Previously selected provider",
+                      },
+                    ]
+                  : []),
+                ...providers.providers.map((provider) => ({
+                  value: provider.id,
+                  label:
+                    provider.name +
+                    (provider.specialty ? ` · ${provider.specialty}` : ""),
+                })),
+              ]}
+            />
+            {providers.error && (
+              <p className="field-error" role="alert">
+                {providers.error}{" "}
+                <button
+                  type="button"
+                  className="text-link"
+                  onClick={providers.reload}
+                >
+                  Retry
+                </button>
+              </p>
+            )}
           </div>
           <div className="field">
             <label

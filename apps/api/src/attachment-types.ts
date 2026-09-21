@@ -34,6 +34,7 @@ export type Attachment = {
   id: string;
   document_group_id: string;
   health_event_id: string;
+  provider_id: string | null;
   file_name: string;
   file_path: string;
   mime_type: string;

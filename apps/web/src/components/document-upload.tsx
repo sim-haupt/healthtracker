@@ -18,6 +18,7 @@ import { useToast } from "./ui/feedback";
 import { uploadPendingDocument } from "./events/pending-document";
 import { CustomSelect } from "./ui/pickers";
 import { DocumentFormFields } from "./document-form-fields";
+import { useProviders } from "./providers-context";
 
 export function DocumentUpload({
   events,
@@ -36,10 +37,12 @@ export function DocumentUpload({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const toast = useToast();
+  const providers = useProviders();
   const [eventId, setEventId] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [documentType, setDocumentType] = useState<DocumentCategory>("other");
   const [description, setDescription] = useState("");
+  const [providerId, setProviderId] = useState("");
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [tagBusy, setTagBusy] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
@@ -55,6 +58,7 @@ export function DocumentUpload({
     setFiles([]);
     setDocumentType("other");
     setDescription("");
+    setProviderId("");
     setTagIds([]);
     setFileInputKey((key) => key + 1);
     setError("");
@@ -107,6 +111,7 @@ export function DocumentUpload({
               mimeType: item.mimeType,
               documentType,
               description,
+              providerId,
               tagIds,
             },
             "document",
@@ -169,6 +174,40 @@ export function DocumentUpload({
             onDescription={setDescription}
             onTags={setTagIds}
             onTagBusyChange={setTagBusy}
+            medicalProvider={
+              <div className="field document-form-provider">
+                <label htmlFor="upload-document-provider">
+                  Medical provider
+                </label>
+                <CustomSelect
+                  id="upload-document-provider"
+                  value={providerId}
+                  disabled={busy || providers.loading}
+                  onChange={setProviderId}
+                  options={[
+                    { value: "", label: "Select medical provider" },
+                    ...providers.providers.map((provider) => ({
+                      value: provider.id,
+                      label:
+                        provider.name +
+                        (provider.specialty ? ` · ${provider.specialty}` : ""),
+                    })),
+                  ]}
+                />
+                {providers.error && (
+                  <p className="field-error" role="alert">
+                    {providers.error}{" "}
+                    <button
+                      type="button"
+                      className="text-link"
+                      onClick={providers.reload}
+                    >
+                      Retry
+                    </button>
+                  </p>
+                )}
+              </div>
+            }
             onFile={(chosen) => {
               setFiles(chosen ? [chosen] : []);
               if (!chosen) return;

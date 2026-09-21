@@ -18,12 +18,14 @@ import {
 import { DocumentCategoryPill } from "../ui/labels";
 import { CustomSelect } from "../ui/pickers";
 import { DocumentFormFields } from "../document-form-fields";
+import { useProviders } from "../providers-context";
 
 export type PendingDocument = {
   file: File;
   mimeType: string;
   documentType: DocumentCategory;
   description: string;
+  providerId?: string;
   tagIds: string[];
 };
 
@@ -52,6 +54,7 @@ export async function uploadPendingDocument(
           : {}),
         ...(documentGroupId ? { document_group_id: documentGroupId } : {}),
         description: pending.description || null,
+        provider_id: pending.providerId || null,
         tag_ids: pending.tagIds,
       },
     });
@@ -129,9 +132,11 @@ export function PendingDocumentPicker({
   currentEventId?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const providers = useProviders();
   const [file, setFile] = useState<File | null>(null);
   const [documentType, setDocumentType] = useState<DocumentCategory>("other");
   const [description, setDescription] = useState("");
+  const [providerId, setProviderId] = useState("");
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [tagBusy, setTagBusy] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
@@ -176,6 +181,7 @@ export function PendingDocumentPicker({
     dialog.current?.close();
     setFile(null);
     setDescription("");
+    setProviderId("");
     setTagIds([]);
     setDocumentType("other");
     setFileInputKey((key) => key + 1);
@@ -196,6 +202,7 @@ export function PendingDocumentPicker({
     if (value?.source === "new") {
       setDocumentType(value.document.documentType);
       setDescription(value.document.description);
+      setProviderId(value.document.providerId ?? "");
       setTagIds(value.document.tagIds);
     }
   }
@@ -286,6 +293,7 @@ export function PendingDocumentPicker({
                 setFile(value.document.file);
                 setDocumentType(value.document.documentType);
                 setDescription(value.document.description);
+                setProviderId(value.document.providerId ?? "");
                 setTagIds(value.document.tagIds);
                 dialog.current?.showModal();
               }}
@@ -332,6 +340,40 @@ export function PendingDocumentPicker({
           onDescription={setDescription}
           onTags={setTagIds}
           onTagBusyChange={setTagBusy}
+          medicalProvider={
+            <div className="field document-form-provider">
+              <label htmlFor="new-event-document-provider">
+                Medical provider
+              </label>
+              <CustomSelect
+                id="new-event-document-provider"
+                value={providerId}
+                disabled={disabled || providers.loading}
+                onChange={setProviderId}
+                options={[
+                  { value: "", label: "Select medical provider" },
+                  ...providers.providers.map((provider) => ({
+                    value: provider.id,
+                    label:
+                      provider.name +
+                      (provider.specialty ? ` · ${provider.specialty}` : ""),
+                  })),
+                ]}
+              />
+              {providers.error && (
+                <p className="field-error" role="alert">
+                  {providers.error}{" "}
+                  <button
+                    type="button"
+                    className="text-link"
+                    onClick={providers.reload}
+                  >
+                    Retry
+                  </button>
+                </p>
+              )}
+            </div>
+          }
           onFile={(chosen) => {
             if (chosen) choose(chosen);
             else setFile(null);
@@ -364,6 +406,7 @@ export function PendingDocumentPicker({
                   mimeType,
                   documentType,
                   description,
+                  providerId,
                   tagIds,
                 },
               });

@@ -124,6 +124,11 @@ function DocumentCard({
           <span>
             <CalendarDays size={15} /> Uploaded {formatDate(item.created_at)}
           </span>
+          {item.provider && (
+            <Link className="text-link" href={`/providers/${item.provider.id}`}>
+              {item.provider.name}
+            </Link>
+          )}
         </div>
         {item.tags.length > 0 && (
           <div className="event-labels">

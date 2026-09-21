@@ -19,6 +19,7 @@ export type HealthDocument = Attachment & {
   event_date: string;
   event_category: Label | null;
   tags: Label[];
+  provider: { id: string; name: string; specialty: string | null } | null;
 };
 
 export function documentTitle(

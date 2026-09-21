@@ -43,6 +43,10 @@ test("private attachments enforce database and Storage isolation and upload cons
       }
     };
     const path = `${uid(1)}/${uid(11)}/${uid(21)}`;
+    await db.query(
+      "insert into public.providers(id,owner_id,name) values($1,$2,'Foreign provider')",
+      [uid(41), uid(2)],
+    );
     const insert = (
       id = uid(21),
       event = uid(11),
@@ -88,6 +92,10 @@ test("private attachments enforce database and Storage isolation and upload cons
       );
       await insert();
       await db.query(
+        "insert into public.providers(id,name) values($1,'Document provider')",
+        [uid(40)],
+      );
+      await db.query(
         "insert into storage.objects(bucket_id,name,metadata) values ('health-attachments',$1,$2)",
         [path, { size: 123, mimetype: "application/pdf" }],
       );
@@ -104,15 +112,23 @@ test("private attachments enforce database and Storage isolation and upload cons
         0,
       );
       const edited = await db.query(
-        "update public.attachments set document_category='lab result',description='Updated report' where id=$1 returning document_category,description",
-        [uid(21)],
+        "update public.attachments set document_category='lab result',description='Updated report',provider_id=$2 where id=$1 returning document_category,description,provider_id",
+        [uid(21), uid(40)],
       );
       assert.deepEqual(edited.rows, [
         {
           document_category: "lab result",
           description: "Updated report",
+          provider_id: uid(40),
         },
       ]);
+      await assert.rejects(
+        db.query("update public.attachments set provider_id=$1 where id=$2", [
+          uid(41),
+          uid(21),
+        ]),
+        { code: "23503" },
+      );
       await assert.rejects(
         db.query("update public.attachments set file_name='changed.pdf'"),
         { code: "42501" },
@@ -143,6 +159,7 @@ test("private attachments enforce database and Storage isolation and upload cons
       assert.equal(linkedDocuments[0].id, uid(21));
       await db.query("delete from public.health_events where id=$1", [uid(13)]);
     });
+    await db.query("delete from public.providers where id=$1", [uid(41)]);
     await run(uid(2), async () => {
       const unavailable = (
         await db.query("select public.link_event_document($1,$2) as document", [
@@ -212,6 +229,11 @@ test("private attachments enforce database and Storage isolation and upload cons
       assert.equal(allDocuments.documents[0].file_name, "report.pdf");
       assert.equal(allDocuments.documents[0].document_category, "lab result");
       assert.equal(allDocuments.documents[0].description, "Annual blood work");
+      assert.deepEqual(allDocuments.documents[0].provider, {
+        id: uid(40),
+        name: "Document provider",
+        specialty: null,
+      });
       assert.equal((await documents({ file_type: "pdf" })).total, 1);
       assert.equal((await documents({ file_type: "image" })).total, 0);
       assert.equal(
@@ -226,6 +248,7 @@ test("private attachments enforce database and Storage isolation and upload cons
       assert.equal((await documents({ event_id: uid(12) })).total, 0);
       assert.equal((await documents({ q: "BLOOD WORK" })).total, 1);
       assert.equal((await documents({ q: "report.pdf" })).total, 1);
+      assert.equal((await documents({ q: "document provider" })).total, 1);
       assert.equal((await documents({ q: "%_" })).total, 0);
       assert.equal(
         (

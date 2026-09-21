@@ -8,6 +8,7 @@ const profileId = "00000000-0000-4000-8000-000000000001";
 const eventId = "00000000-0000-4000-8000-000000000002";
 const tagId = "00000000-0000-4000-8000-000000000003";
 const documentGroupId = "00000000-0000-4000-8000-000000000004";
+const providerId = "00000000-0000-4000-8000-000000000005";
 
 test("document search is authenticated and passes validated private filters", async () => {
   let received: unknown;
@@ -107,28 +108,45 @@ test("document metadata updates every owned file group through validated input",
 
   await request(app)
     .put(`/api/v1/documents/${documentGroupId}`)
-    .send({ document_category: "lab result", description: "Updated title" })
+    .send({
+      document_category: "lab result",
+      description: "Updated title",
+      provider_id: providerId,
+    })
     .expect(401);
   const updated = await request(app)
     .put(`/api/v1/documents/${documentGroupId}`)
     .set("Authorization", "Bearer good")
-    .send({ document_category: "lab result", description: "Updated title" });
+    .send({
+      document_category: "lab result",
+      description: "Updated title",
+      provider_id: providerId,
+    });
   assert.equal(updated.status, 200);
   assert.deepEqual(received, {
     id: documentGroupId,
     input: {
       document_category: "lab result",
       description: "Updated title",
+      provider_id: providerId,
     },
   });
   await request(app)
     .put("/api/v1/documents/00000000-0000-4000-8000-000000000099")
     .set("Authorization", "Bearer good")
-    .send({ document_category: "other", description: null })
+    .send({
+      document_category: "other",
+      description: null,
+      provider_id: null,
+    })
     .expect(404);
   await request(app)
     .put(`/api/v1/documents/${documentGroupId}`)
     .set("Authorization", "Bearer good")
-    .send({ document_category: "unknown", description: "Title" })
+    .send({
+      document_category: "unknown",
+      description: "Title",
+      provider_id: null,
+    })
     .expect(400);
 });

@@ -339,14 +339,20 @@ export function createUserDataAccess(
           file_path: `${ownerId}/${eventId}/${id}`,
         })
         .select(
-          "id,document_group_id,health_event_id,file_name,file_path,mime_type,file_size,document_category,attachment_kind,description,created_at",
+          "id,document_group_id,health_event_id,provider_id,file_name,file_path,mime_type,file_size,document_category,attachment_kind,description,created_at",
         )
         .single();
-      if (error)
+      if (error) {
+        if (error.code === "23503")
+          throw new EventDataError(
+            400,
+            "Choose an available medical provider.",
+          );
         throw new EventDataError(
           503,
           "Unable to prepare the attachment. Refresh and try again.",
         );
+      }
       if (tag_ids.length) {
         const linked = await client.from("health_event_tags").upsert(
           tag_ids.map((tagId) => ({
@@ -394,11 +400,17 @@ export function createUserDataAccess(
         .eq("document_group_id", documentGroupId)
         .eq("attachment_kind", "document")
         .select("id");
-      if (error)
+      if (error) {
+        if (error.code === "23503")
+          throw new EventDataError(
+            400,
+            "Choose an available medical provider.",
+          );
         throw new EventDataError(
           503,
           "Unable to update the document. Please retry.",
         );
+      }
       return !!data?.length;
     },
     async listProviders() {

@@ -20,6 +20,7 @@ export function DocumentFormFields({
   file,
   files,
   disabled,
+  medicalProvider,
   relatedEvent,
   onDocumentType,
   onDescription,
@@ -37,6 +38,7 @@ export function DocumentFormFields({
   file: File | null;
   files?: File[];
   disabled: boolean;
+  medicalProvider?: ReactNode;
   relatedEvent?: ReactNode;
   onDocumentType: (value: DocumentCategory) => void;
   onDescription: (value: string) => void;
@@ -66,6 +68,7 @@ export function DocumentFormFields({
           }))}
         />
       </div>
+      {medicalProvider}
       {relatedEvent}
       <div className="field document-form-description">
         <label htmlFor={descriptionId}>Description</label>

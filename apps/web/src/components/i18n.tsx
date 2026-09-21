@@ -371,6 +371,8 @@ const german: Record<string, string> = {
   "Choose an event type.": "Wählen Sie einen Ereignistyp.",
   "Choose an available event type.":
     "Wählen Sie einen verfügbaren Ereignistyp.",
+  "Choose an available medical provider.":
+    "Wählen Sie eine verfügbare medizinische Einrichtung.",
   "Choose a type": "Typ auswählen",
   "Choose a date": "Datum auswählen",
   "Choose date": "Datum auswählen",

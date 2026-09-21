@@ -23,6 +23,7 @@ export type AttachmentDataAccess = {
       document_category: DocumentCategory;
       attachment_kind: AttachmentKind;
       document_group_id?: string;
+      provider_id: string | null;
       description: string | null;
       tag_ids: string[];
     },
@@ -67,6 +68,11 @@ export function attachmentRouter() {
         document_category: z.enum(documentCategories).default("other"),
         attachment_kind: z.enum(attachmentKinds).default("document"),
         document_group_id: z.uuid().optional(),
+        provider_id: z
+          .uuid("Choose an available medical provider.")
+          .nullable()
+          .optional()
+          .default(null),
         description: z
           .string()
           .trim()
