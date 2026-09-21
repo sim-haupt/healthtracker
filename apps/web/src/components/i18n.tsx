@@ -58,6 +58,7 @@ const german: Record<string, string> = {
   "Add event": "Ereignis hinzufügen",
   "Add episode": "Episode hinzufügen",
   "Add document": "Dokument hinzufügen",
+  "Edit document": "Dokument bearbeiten",
   "Add provider": "Einrichtung hinzufügen",
   "Add reminder": "Erinnerung hinzufügen",
   "Add test type": "Untersuchungsart hinzufügen",
@@ -479,6 +480,9 @@ const german: Record<string, string> = {
   "Unable to load preview.": "Vorschau konnte nicht geladen werden.",
   "Preview unavailable.": "Vorschau nicht verfügbar.",
   "Document uploaded.": "Dokument hochgeladen.",
+  "Document updated.": "Dokument aktualisiert.",
+  "Unable to update document. Please retry.":
+    "Das Dokument konnte nicht aktualisiert werden. Bitte versuchen Sie es erneut.",
   "Document upload failed.": "Dokument-Upload fehlgeschlagen.",
   "Event saved.": "Ereignis gespeichert.",
   "Event deleted.": "Ereignis gelöscht.",

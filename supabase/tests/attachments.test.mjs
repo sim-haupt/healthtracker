@@ -87,13 +87,6 @@ test("private attachments enforce database and Storage isolation and upload cons
         { code: "23514" },
       );
       await insert();
-      await assert.rejects(
-        db.query(
-          "insert into storage.objects(bucket_id,name,metadata) values ('health-attachments',$1,$2)",
-          [path, { size: 124, mimetype: "application/pdf" }],
-        ),
-        { code: "42501" },
-      );
       await db.query(
         "insert into storage.objects(bucket_id,name,metadata) values ('health-attachments',$1,$2)",
         [path, { size: 123, mimetype: "application/pdf" }],
@@ -109,6 +102,20 @@ test("private attachments enforce database and Storage isolation and upload cons
           )
         ).rows.length,
         0,
+      );
+      const edited = await db.query(
+        "update public.attachments set document_category='lab result',description='Updated report' where id=$1 returning document_category,description",
+        [uid(21)],
+      );
+      assert.deepEqual(edited.rows, [
+        {
+          document_category: "lab result",
+          description: "Updated report",
+        },
+      ]);
+      await assert.rejects(
+        db.query("update public.attachments set file_name='changed.pdf'"),
+        { code: "42501" },
       );
       await assert.rejects(
         db.query("delete from public.health_events where id=$1", [uid(11)]),
@@ -291,6 +298,20 @@ test("private attachments enforce database and Storage isolation and upload cons
           else
             assert.equal(
               (await db.query("select * from public.attachments")).rows.length,
+              0,
+            );
+          if (owner === null)
+            await assert.rejects(
+              db.query("update public.attachments set description='Blocked'"),
+              { code: "42501" },
+            );
+          else
+            assert.equal(
+              (
+                await db.query(
+                  "update public.attachments set description='Blocked' returning id",
+                )
+              ).rows.length,
               0,
             );
           assert.equal(
@@ -778,8 +799,9 @@ test("private attachments enforce database and Storage isolation and upload cons
     await run(uid(1), async () => {
       const defaults = (await db.query("select * from public.event_types"))
         .rows;
-      assert.equal(defaults.length, 9);
+      assert.equal(defaults.length, 10);
       assert.ok(defaults.some((eventType) => eventType.key === "Migraine"));
+      assert.ok(defaults.some((eventType) => eventType.key === "Herpes"));
       customType = (
         await db.query(
           "insert into public.event_types(name,color) values('Custom check','#249E94') returning *",

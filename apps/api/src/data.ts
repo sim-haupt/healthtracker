@@ -387,6 +387,20 @@ export function createUserDataAccess(
         );
       return data as { documents: HealthDocument[]; total: number };
     },
+    async updateDocument(documentGroupId, input) {
+      const { data, error } = await client
+        .from("attachments")
+        .update(input)
+        .eq("document_group_id", documentGroupId)
+        .eq("attachment_kind", "document")
+        .select("id");
+      if (error)
+        throw new EventDataError(
+          503,
+          "Unable to update the document. Please retry.",
+        );
+      return !!data?.length;
+    },
     async listProviders() {
       const { data, error } = await client
         .from("providers")

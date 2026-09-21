@@ -1849,6 +1849,15 @@ h3 {
   font-size: 0.95rem;
   font-weight: 700;
 }
+.event-document-group-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.event-document-group-heading .button {
+  flex: 0 0 auto;
+}
 .event-document-title .rich-text-content > :first-child {
   margin-top: 0;
 }

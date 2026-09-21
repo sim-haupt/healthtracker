@@ -7,6 +7,7 @@ import { emptyEventData } from "./test-data.js";
 const profileId = "00000000-0000-4000-8000-000000000001";
 const eventId = "00000000-0000-4000-8000-000000000002";
 const tagId = "00000000-0000-4000-8000-000000000003";
+const documentGroupId = "00000000-0000-4000-8000-000000000004";
 
 test("document search is authenticated and passes validated private filters", async () => {
   let received: unknown;
@@ -86,4 +87,48 @@ test("document search rejects malformed and unsupported filters", async () => {
       .send(body)
       .expect(400);
   assert.equal(reads, 0);
+});
+
+test("document metadata updates every owned file group through validated input", async () => {
+  let received: unknown;
+  const app = createApp({
+    frontendOrigin: "http://localhost:3000",
+    verifyToken: async (token) => (token === "good" ? { id: "owner" } : null),
+    dataForToken: () => ({
+      ...emptyEventData,
+      isApproved: async () => true,
+      listProfiles: async () => [],
+      updateDocument: async (id, input) => {
+        received = { id, input };
+        return id === documentGroupId;
+      },
+    }),
+  });
+
+  await request(app)
+    .put(`/api/v1/documents/${documentGroupId}`)
+    .send({ document_category: "lab result", description: "Updated title" })
+    .expect(401);
+  const updated = await request(app)
+    .put(`/api/v1/documents/${documentGroupId}`)
+    .set("Authorization", "Bearer good")
+    .send({ document_category: "lab result", description: "Updated title" });
+  assert.equal(updated.status, 200);
+  assert.deepEqual(received, {
+    id: documentGroupId,
+    input: {
+      document_category: "lab result",
+      description: "Updated title",
+    },
+  });
+  await request(app)
+    .put("/api/v1/documents/00000000-0000-4000-8000-000000000099")
+    .set("Authorization", "Bearer good")
+    .send({ document_category: "other", description: null })
+    .expect(404);
+  await request(app)
+    .put(`/api/v1/documents/${documentGroupId}`)
+    .set("Authorization", "Bearer good")
+    .send({ document_category: "unknown", description: "Title" })
+    .expect(400);
 });

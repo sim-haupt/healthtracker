@@ -7,6 +7,7 @@ import { type Attachment } from "@/lib/attachments";
 import { categoryLabel, documentTitle } from "@/lib/documents";
 import { DocumentCategoryPill } from "../ui/labels";
 import { RichTextContent } from "../ui/rich-text";
+import { DocumentEditButton } from "../document-editor";
 
 function AttachmentItem({
   item,
@@ -286,16 +287,22 @@ export function EventAttachments({
               <div className="event-document-groups">
                 {groupedDocuments(items).map(([groupId, files]) => (
                   <section className="event-document-group" key={groupId}>
-                    <div
-                      className="event-document-title"
-                      role="heading"
-                      aria-level={4}
-                    >
-                      {files[0].description ? (
-                        <RichTextContent value={files[0].description} />
-                      ) : (
-                        documentTitle(files[0])
-                      )}
+                    <div className="event-document-group-heading">
+                      <div
+                        className="event-document-title"
+                        role="heading"
+                        aria-level={4}
+                      >
+                        {files[0].description ? (
+                          <RichTextContent value={files[0].description} />
+                        ) : (
+                          documentTitle(files[0])
+                        )}
+                      </div>
+                      <DocumentEditButton
+                        document={files[0]}
+                        onUpdated={load}
+                      />
                     </div>
                     <ul className="attachment-list">
                       {files.map((item) => (

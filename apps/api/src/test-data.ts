@@ -34,6 +34,7 @@ export const emptyEventData: EventTypeDataAccess &
   linkAttachment: async () => null,
   deleteAttachment: async () => false,
   listDocuments: async () => ({ documents: [], total: 0 }),
+  updateDocument: async () => false,
   listReminders: async () => ({ reminders: [], total: 0 }),
   saveReminder: async () => null,
   setReminderStatus: async () => null,

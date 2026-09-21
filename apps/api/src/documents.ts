@@ -53,6 +53,13 @@ export type DocumentDataAccess = {
   listDocuments: (
     query: DocumentQuery,
   ) => Promise<{ documents: HealthDocument[]; total: number }>;
+  updateDocument: (
+    documentGroupId: string,
+    input: {
+      document_category: (typeof documentCategories)[number];
+      description: string | null;
+    },
+  ) => Promise<boolean>;
 };
 
 export function documentRouter() {
@@ -67,6 +74,34 @@ export function documentRouter() {
     res.json(
       await (res.locals.data as UserDataAccess).listDocuments(parsed.data),
     );
+  });
+  router.put("/:documentGroupId", async (req, res) => {
+    const documentGroupId = String(req.params.documentGroupId);
+    const parsed = z
+      .object({
+        document_category: z.enum(documentCategories),
+        description: z
+          .string()
+          .trim()
+          .max(2000, "Use 2,000 characters or fewer.")
+          .nullable()
+          .transform((value) => value || null),
+      })
+      .strict()
+      .safeParse(req.body);
+    if (!z.uuid().safeParse(documentGroupId).success || !parsed.success)
+      throw new EventDataError(400, "Check the document details.");
+    if (
+      !(await (res.locals.data as UserDataAccess).updateDocument(
+        documentGroupId,
+        parsed.data,
+      ))
+    )
+      throw new EventDataError(
+        404,
+        "Document not found or no longer available.",
+      );
+    res.json({ document_group_id: documentGroupId });
   });
   return router;
 }

@@ -27,6 +27,7 @@ import { CustomSelect, DatePicker } from "./ui/pickers";
 import { FilterBar } from "./ui/filter-bar";
 import { ProfileColumns } from "./ui/profile-columns";
 import { eventDisplayTitle } from "@/lib/events";
+import { DocumentEditButton } from "./document-editor";
 import {
   categoryLabel,
   documentTitle,
@@ -40,7 +41,13 @@ import {
 
 type DocumentResults = { documents: HealthDocument[]; total: number };
 
-function DocumentCard({ item }: { item: HealthDocument }) {
+function DocumentCard({
+  item,
+  onUpdated,
+}: {
+  item: HealthDocument;
+  onUpdated: () => void;
+}) {
   const { profiles } = useProfiles();
   const [opening, setOpening] = useState("");
   const [error, setError] = useState("");
@@ -88,6 +95,7 @@ function DocumentCard({ item }: { item: HealthDocument }) {
   const Icon = files.some((file) => file.mime_type.startsWith("image/"))
     ? FileImage
     : FileText;
+
   return (
     <article className="card document-card">
       <div className="document-icon" aria-hidden>
@@ -131,6 +139,7 @@ function DocumentCard({ item }: { item: HealthDocument }) {
         )}
       </div>
       <div className="document-actions">
+        <DocumentEditButton document={item} onUpdated={onUpdated} />
         <div className="document-file-actions">
           {files.map((file) => {
             const previewable =
@@ -174,9 +183,11 @@ function DocumentCard({ item }: { item: HealthDocument }) {
 function DocumentResultsList({
   query,
   queryError,
+  onUpdated,
 }: {
   query: Record<string, unknown>;
   queryError: string;
+  onUpdated: () => void;
 }) {
   const [page, setPage] = useState(1);
   const { data, error, retry } = useTrackerResults<DocumentResults>(
@@ -218,7 +229,7 @@ function DocumentResultsList({
         {(documents) => (
           <div className="document-list">
             {documents.map((item) => (
-              <DocumentCard item={item} key={item.id} />
+              <DocumentCard item={item} key={item.id} onUpdated={onUpdated} />
             ))}
           </div>
         )}
@@ -442,6 +453,7 @@ export function DocumentsPage() {
         key={JSON.stringify([selected.query, selected.error, revision])}
         query={selected.query}
         queryError={selected.error}
+        onUpdated={() => setRevision((value) => value + 1)}
       />
     </>
   );
