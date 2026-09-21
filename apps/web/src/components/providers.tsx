@@ -18,6 +18,7 @@ import {
   Star,
 } from "lucide-react";
 import { apiFetch, ApiError } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import type { Provider, ProviderInput } from "@/lib/providers";
 import { useProviders } from "./providers-context";
 import { useProfiles } from "./app-shell";
@@ -358,37 +359,61 @@ export function ProviderDirectory() {
     </>
   );
 }
+type ProviderTimelineResponse = {
+  items: Array<{
+    id: string;
+    record_type: "event" | "document";
+    event_id: string;
+    document_group_id: string | null;
+    profile_id: string;
+    event_type: string | null;
+    title: string;
+    occurred_at: string;
+    description: string | null;
+    file_name: string | null;
+    document_category: string | null;
+  }>;
+  total: number;
+};
+
+async function loadProviderTimeline(
+  id: string,
+  page: number,
+  profileId?: string,
+  signal?: AbortSignal,
+) {
+  try {
+    return await apiFetch<ProviderTimelineResponse>(
+      `/api/v1/providers/${id}/timeline?page=${page}${profileId ? `&profile_id=${profileId}` : ""}`,
+      signal,
+    );
+  } catch (cause) {
+    if (!(cause instanceof ApiError) || cause.status !== 404 || !supabase)
+      throw cause;
+    const { data, error } = await supabase.rpc("provider_health_timeline", {
+      p_provider_id: id,
+      p_profile_id: profileId ?? null,
+      p_page: page,
+      p_page_size: 30,
+    });
+    if (error) throw new Error(error.message);
+    return data as ProviderTimelineResponse;
+  }
+}
+
 function RelatedRecords({ id }: { id: string }) {
   const [page, setPage] = useState(1),
     [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<{
     key: string;
-    data?: {
-      items: Array<{
-        id: string;
-        record_type: "event" | "document";
-        event_id: string;
-        document_group_id: string | null;
-        profile_id: string;
-        event_type: string | null;
-        title: string;
-        occurred_at: string;
-        description: string | null;
-        file_name: string | null;
-        document_category: string | null;
-      }>;
-      total: number;
-    };
+    data?: ProviderTimelineResponse;
     error?: string;
   }>({ key: "" });
   const { activeProfile } = useProfiles();
   const key = `${id}:${activeProfile?.id ?? "all"}:${page}:${attempt}`;
   useEffect(() => {
     const controller = new AbortController();
-    apiFetch<NonNullable<(typeof state)["data"]>>(
-      `/api/v1/providers/${id}/timeline?page=${page}${activeProfile ? `&profile_id=${activeProfile.id}` : ""}`,
-      controller.signal,
-    )
+    loadProviderTimeline(id, page, activeProfile?.id, controller.signal)
       .then((data) => {
         if (!controller.signal.aborted) setState({ key, data });
       })
