@@ -14,6 +14,7 @@ import {
   Bandage,
   Activity,
   ArrowUpRight,
+  FileText,
 } from "lucide-react";
 import { TrackerFiltersBar, useTrackerQuery } from "./filters";
 import { useTrackerResults } from "./use-results";
@@ -22,6 +23,8 @@ import { localeCode } from "@/lib/locale";
 import { formatAccessibleDate, ordinalDay } from "@/lib/date-format";
 import { CustomSelect } from "../ui/pickers";
 import { ProfileColumns } from "../ui/profile-columns";
+import { DocumentCategoryPill } from "../ui/labels";
+import { categoryLabel } from "@/lib/documents";
 import {
   groupTimeline,
   type TimelineItem,
@@ -37,9 +40,14 @@ const icons: Record<string, typeof Activity> = {
   Injury: Bandage,
   Other: Activity,
 };
-function TimelineEntry({ item }: { item: TimelineItem }) {
+export function TimelineEntry({ item }: { item: TimelineItem }) {
   const episode = item.entry_type === "episode";
-  const Icon = episode ? Layers : (icons[item.event_type] ?? Activity);
+  const document = item.entry_type === "document";
+  const Icon = document
+    ? FileText
+    : episode
+      ? Layers
+      : (icons[item.event_type] ?? Activity);
   return (
     <li className="timeline-item">
       <span className="timeline-marker" aria-hidden>
@@ -52,7 +60,17 @@ function TimelineEntry({ item }: { item: TimelineItem }) {
         }
       >
         <div className="timeline-kind">
-          <EventTypeBadge type={item.event_type} />
+          {document ? (
+            <DocumentCategoryPill
+              name={
+                item.document_category
+                  ? categoryLabel(item.document_category)
+                  : "Document"
+              }
+            />
+          ) : (
+            <EventTypeBadge type={item.event_type} />
+          )}
         </div>
         <h3>
           {item.title}
@@ -73,7 +91,7 @@ function TimelineEntry({ item }: { item: TimelineItem }) {
     </li>
   );
 }
-function TimelineGroups({ items }: { items: TimelineItem[] }) {
+export function TimelineGroups({ items }: { items: TimelineItem[] }) {
   return (
     <div className="health-timeline">
       {groupTimeline(items).map((year) => (

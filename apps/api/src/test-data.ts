@@ -45,6 +45,7 @@ export const emptyEventData: EventTypeDataAccess &
   saveProvider: async () => null,
   deleteProvider: async () => false,
   providerEvents: async () => ({ events: [], total: 0 }),
+  providerTimeline: async () => ({ items: [], total: 0 }),
   timeline: async () => ({ items: [], total: 0 }),
   dashboard: async () => ({ profiles: [] }),
   listLabels: async () => [],

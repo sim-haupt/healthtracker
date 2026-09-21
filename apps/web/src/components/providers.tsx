@@ -1,5 +1,4 @@
 "use client";
-import { EventTypeBadge } from "./event-types";
 import { useTracker } from "./tracker/context";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,17 +14,18 @@ import {
   Globe,
   ArrowLeft,
   ArrowUpRight,
-  NotebookPen,
+  History,
   Star,
 } from "lucide-react";
 import { apiFetch, ApiError } from "@/lib/api";
-import { dateLabel, eventDisplayTitle, type HealthEvent } from "@/lib/events";
 import type { Provider, ProviderInput } from "@/lib/providers";
 import { useProviders } from "./providers-context";
 import { useProfiles } from "./app-shell";
-import { ProfileIdentity } from "./ui/profile-avatar";
-import { RichTextContent } from "./ui/rich-text";
 import { FilterBar } from "./ui/filter-bar";
+import { ProfileColumns } from "./ui/profile-columns";
+import { TimelineGroups } from "./tracker/timeline";
+import type { TimelineItem } from "@/lib/timeline";
+import { documentTitle } from "@/lib/documents";
 import {
   ConfirmDialog,
   LoadingState,
@@ -363,15 +363,30 @@ function RelatedRecords({ id }: { id: string }) {
     [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<{
     key: string;
-    data?: { events: HealthEvent[]; total: number };
+    data?: {
+      items: Array<{
+        id: string;
+        record_type: "event" | "document";
+        event_id: string;
+        document_group_id: string | null;
+        profile_id: string;
+        event_type: string | null;
+        title: string;
+        occurred_at: string;
+        description: string | null;
+        file_name: string | null;
+        document_category: string | null;
+      }>;
+      total: number;
+    };
     error?: string;
   }>({ key: "" });
-  const { profiles, activeProfile } = useProfiles();
+  const { activeProfile } = useProfiles();
   const key = `${id}:${activeProfile?.id ?? "all"}:${page}:${attempt}`;
   useEffect(() => {
     const controller = new AbortController();
-    apiFetch<{ events: HealthEvent[]; total: number }>(
-      `/api/v1/providers/${id}/events?page=${page}${activeProfile ? `&profile_id=${activeProfile.id}` : ""}`,
+    apiFetch<NonNullable<(typeof state)["data"]>>(
+      `/api/v1/providers/${id}/timeline?page=${page}${activeProfile ? `&profile_id=${activeProfile.id}` : ""}`,
       controller.signal,
     )
       .then((data) => {
@@ -392,46 +407,40 @@ function RelatedRecords({ id }: { id: string }) {
       />
     );
   const data = state.data!;
-  const sections = [
-    {
-      title: "Related appointments",
-      events: data.events.filter((e) => e.event_type === "Doctor Visit"),
-      field: "description",
-    },
-    {
-      title: "Diagnoses",
-      events: data.events.filter((e) => e.diagnosis),
-      field: "diagnosis",
-    },
-    {
-      title: "Prescriptions",
-      events: data.events.filter((e) => e.prescription),
-      field: "prescription",
-    },
-    {
-      title: "Tests & examinations",
-      events: data.events.filter((e) => e.event_type === "Examination / Test"),
-      field: "description",
-    },
-    {
-      title: "Event notes",
-      events: data.events.filter((e) => e.notes),
-      field: "notes",
-    },
-  ] as const;
+  const items: TimelineItem[] = data.items.map((item) => ({
+    id: item.id,
+    entry_type: item.record_type,
+    event_id: item.event_id,
+    profile_id: item.profile_id,
+    event_type: item.event_type ?? "Document",
+    title:
+      item.record_type === "document"
+        ? documentTitle({
+            description: item.description,
+            file_name: item.file_name ?? "Document",
+          })
+        : item.title,
+    event_title: item.title,
+    occurred_at: item.occurred_at,
+    summary: "",
+    tags: [],
+    category: null,
+    document_category: item.document_category,
+  }));
   return (
     <>
       <div className="section-intro">
-        <h2>Related events</h2>
+        <h2>Timeline</h2>
         <p>
-          {data.total} linked {data.total === 1 ? "event" : "events"}. Newest
-          first.
+          {data.total} related {data.total === 1 ? "record" : "records"} ·
+          Events and documents · Newest first
         </p>
       </div>
       {!data.total ? (
         <section className="card event-state">
-          <NotebookPen size={25} />
-          <h2>No related events</h2>
+          <History size={25} />
+          <h2>No related records</h2>
+          <p>Events and documents linked to this provider will appear here.</p>
 
           <Link className="button" href="/events/new">
             Add event
@@ -439,69 +448,14 @@ function RelatedRecords({ id }: { id: string }) {
         </section>
       ) : (
         <>
-          <p className="muted provider-page-note">
-            Showing related details from events {(page - 1) * 30 + 1}–
-            {Math.min(page * 30, data.total)} of {data.total}. An event may
-            appear in more than one section.
-          </p>
-          <div className="clinical-grid">
-            {sections.map((section) => (
-              <section
-                className="card provider-record-section"
-                key={section.title}
-              >
-                <h2>{section.title}</h2>
-                {section.events.length ? (
-                  <ul>
-                    {section.events.map((event) => (
-                      <li key={event.id}>
-                        <Link href={`/events/${event.id}`}>
-                          <span className="provider-event-meta muted">
-                            {(() => {
-                              const profile = profiles.find(
-                                (p) => p.id === event.profile_id,
-                              );
-                              return (
-                                <ProfileIdentity
-                                  name={profile?.name ?? "Health profile"}
-                                  avatar={profile?.avatar}
-                                />
-                              );
-                            })()}
-                            <span>· {dateLabel(event.event_date)}</span>
-                          </span>
-                          <h3>{eventDisplayTitle(event)}</h3>
-                          {event[section.field] && (
-                            <RichTextContent
-                              value={String(event[section.field])}
-                            />
-                          )}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="muted">None recorded in these events.</p>
-                )}
-              </section>
-            ))}
-          </div>
-          <details className="card provider-all-records">
-            <summary>All linked events ({data.total})</summary>
-            <ul>
-              {data.events.map((event) => (
-                <li key={event.id}>
-                  <Link className="text-link" href={`/events/${event.id}`}>
-                    {eventDisplayTitle(event)}
-                  </Link>
-                  <span className="muted">
-                    <EventTypeBadge type={event.event_type} /> ·{" "}
-                    {dateLabel(event.event_date)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </details>
+          <ProfileColumns
+            items={items}
+            profileId={(item) => item.profile_id}
+            noun="record"
+            className="timeline-profile-columns provider-timeline-columns"
+          >
+            {(profileItems) => <TimelineGroups items={profileItems} />}
+          </ProfileColumns>
           <div className="card events-pagination">
             <span>
               Page {page} of {Math.ceil(data.total / 30)}
@@ -519,7 +473,7 @@ function RelatedRecords({ id }: { id: string }) {
                 disabled={page * 30 >= data.total}
                 onClick={() => setPage((p) => p + 1)}
               >
-                Older records
+                Earlier records
               </button>
             </div>
           </div>

@@ -44,7 +44,8 @@ test("providers validate contact fields and website schemes", () => {
 });
 test("provider CRUD and related records use authenticated scope", async () => {
   let row: Provider | null = null;
-  let receivedProfile: string | undefined;
+  let receivedProfile: string | undefined,
+    receivedTimelineProfile: string | undefined;
   const app = createApp({
     frontendOrigin: "http://localhost:3000",
     verifyToken: async (token) =>
@@ -69,6 +70,10 @@ test("provider CRUD and related records use authenticated scope", async () => {
       providerEvents: async (_id, _page, profileId) => {
         receivedProfile = profileId;
         return { events: [], total: 0 };
+      },
+      providerTimeline: async (_id, _page, profileId) => {
+        receivedTimelineProfile = profileId;
+        return { items: [], total: 0 };
       },
     }),
   });
@@ -102,6 +107,12 @@ test("provider CRUD and related records use authenticated scope", async () => {
     .expect(200)
     .expect("Cache-Control", "no-store");
   assert.equal(receivedProfile, id);
+  await request(app)
+    .get(`/api/v1/providers/${id}/timeline?profile_id=${id}`)
+    .set("Authorization", "Bearer own")
+    .expect(200)
+    .expect("Cache-Control", "no-store");
+  assert.equal(receivedTimelineProfile, id);
   await request(app)
     .delete(`/api/v1/providers/${id}`)
     .set("Authorization", "Bearer own")

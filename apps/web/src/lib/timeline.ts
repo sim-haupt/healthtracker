@@ -1,7 +1,7 @@
 import type { Label } from "./tracker";
 export type TimelineItem = {
   id: string;
-  entry_type: "event" | "episode";
+  entry_type: "event" | "episode" | "document";
   event_id: string;
   profile_id: string;
   event_type: string;
@@ -12,6 +12,7 @@ export type TimelineItem = {
   related_event_id?: string | null;
   tags: Label[];
   category: Label | null;
+  document_category?: string | null;
 };
 export type TimelineResults = { items: TimelineItem[]; total: number };
 export function timelineYearQuery(

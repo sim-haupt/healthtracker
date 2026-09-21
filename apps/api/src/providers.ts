@@ -41,6 +41,19 @@ export const providerSchema = z
   .strict();
 export type ProviderInput = z.output<typeof providerSchema>;
 export type Provider = ProviderInput & { id: string; created_at: string };
+export type ProviderTimelineItem = {
+  id: string;
+  record_type: "event" | "document";
+  event_id: string;
+  document_group_id: string | null;
+  profile_id: string;
+  event_type: string | null;
+  title: string;
+  occurred_at: string;
+  description: string | null;
+  file_name: string | null;
+  document_category: string | null;
+};
 export type ProviderDataAccess = {
   listProviders: () => Promise<Provider[]>;
   getProvider: (id: string) => Promise<Provider | null>;
@@ -54,6 +67,11 @@ export type ProviderDataAccess = {
     page: number,
     profileId?: string,
   ) => Promise<{ events: HealthEvent[]; total: number }>;
+  providerTimeline: (
+    id: string,
+    page: number,
+    profileId?: string,
+  ) => Promise<{ items: ProviderTimelineItem[]; total: number }>;
 };
 export function providerRouter() {
   const router = Router();
@@ -96,6 +114,32 @@ export function providerRouter() {
       );
     res.json({
       ...(await data.providerEvents(
+        id,
+        query.data.page,
+        query.data.profile_id,
+      )),
+      page: query.data.page,
+      page_size: 30,
+    });
+  });
+  router.get("/:id/timeline", async (req, res) => {
+    const id = String(req.params.id),
+      data = res.locals.data as UserDataAccess;
+    const query = z
+      .object({
+        page: z.coerce.number().int().min(1).max(100000).default(1),
+        profile_id: z.uuid().optional(),
+      })
+      .strict()
+      .safeParse(req.query);
+    if (!query.success) throw new EventDataError(400, "Invalid filters.");
+    if (!(await data.getProvider(id)))
+      throw new EventDataError(
+        404,
+        "Provider not found or no longer available.",
+      );
+    res.json({
+      ...(await data.providerTimeline(
         id,
         query.data.page,
         query.data.profile_id,

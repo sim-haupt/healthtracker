@@ -1,6 +1,6 @@
 import type { EventTypeDataAccess, ManagedEventType } from "./event-types.js";
 import type { EpisodeDataAccess, Episode } from "./episodes.js";
-import type { ProviderDataAccess } from "./providers.js";
+import type { ProviderDataAccess, ProviderTimelineItem } from "./providers.js";
 import type { DocumentDataAccess, HealthDocument } from "./documents.js";
 import type { ReminderDataAccess, Reminder } from "./reminders.js";
 import { randomUUID } from "node:crypto";
@@ -474,6 +474,17 @@ export function createUserDataAccess(
       if (error)
         throw new EventDataError(503, "Unable to load related health records.");
       return { events: data as HealthEvent[], total: count ?? 0 };
+    },
+    async providerTimeline(id, page, profileId) {
+      const { data, error } = await client.rpc("provider_health_timeline", {
+        p_provider_id: id,
+        p_profile_id: profileId ?? null,
+        p_page: page,
+        p_page_size: 30,
+      });
+      if (error)
+        throw new EventDataError(503, "Unable to load provider timeline.");
+      return data as { items: ProviderTimelineItem[]; total: number };
     },
     async updateProfile(id, input) {
       const previous = await client

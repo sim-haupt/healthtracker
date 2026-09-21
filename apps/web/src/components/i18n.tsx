@@ -18,6 +18,12 @@ const german: Record<string, string> = {
   "Health tracker": "Health tracker",
   Overview: "Übersicht",
   Timeline: "Zeitleiste",
+  "No related records": "Keine zugehörigen Einträge",
+  "Events and documents linked to this provider will appear here.":
+    "Ereignisse und Dokumente, die mit dieser Einrichtung verknüpft sind, werden hier angezeigt.",
+  "Events and documents · Newest first":
+    "Ereignisse und Dokumente · Neueste zuerst",
+  "Earlier records": "Frühere Einträge",
   Calendar: "Kalender",
   "Health episodes": "Episoden",
   Documents: "Dokumente",

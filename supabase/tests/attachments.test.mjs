@@ -249,6 +249,15 @@ test("private attachments enforce database and Storage isolation and upload cons
       assert.equal((await documents({ q: "BLOOD WORK" })).total, 1);
       assert.equal((await documents({ q: "report.pdf" })).total, 1);
       assert.equal((await documents({ q: "document provider" })).total, 1);
+      const providerTimeline = (
+        await db.query(
+          "select public.provider_health_timeline($1,null,1,30) as result",
+          [uid(40)],
+        )
+      ).rows[0].result;
+      assert.equal(providerTimeline.total, 1);
+      assert.equal(providerTimeline.items[0].record_type, "document");
+      assert.ok(providerTimeline.items[0].document_group_id);
       assert.equal((await documents({ q: "%_" })).total, 0);
       assert.equal(
         (
