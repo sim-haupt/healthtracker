@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Download, FileText, Paperclip } from "lucide-react";
+import { Download, ExternalLink, FileText, Paperclip } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { type Attachment } from "@/lib/attachments";
@@ -21,6 +21,10 @@ function AttachmentItem({
   const [attempt, setAttempt] = useState(0);
   const dialog = useRef<HTMLDialogElement>(null);
   const isImage = item.mime_type.startsWith("image/");
+  const previewable =
+    isImage ||
+    item.mime_type.startsWith("text/") ||
+    item.mime_type === "application/pdf";
 
   useEffect(() => {
     if (!isImage) return;
@@ -36,7 +40,9 @@ function AttachmentItem({
           setError("Preview unavailable.");
           return;
         }
-        objectUrl = URL.createObjectURL(data);
+        objectUrl = URL.createObjectURL(
+          data.slice(0, data.size, item.mime_type),
+        );
         setUrl(objectUrl);
       })
       .catch(() => {
@@ -46,24 +52,36 @@ function AttachmentItem({
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [item.file_path, isImage, attempt]);
+  }, [item.file_path, item.mime_type, isImage, attempt]);
 
-  async function download() {
+  async function open() {
+    if (isImage && url) {
+      dialog.current?.showModal();
+      return;
+    }
+    const preview = previewable ? window.open("about:blank", "_blank") : null;
+    if (preview) preview.opener = null;
     setLoading(true);
     setError("");
     try {
       const { data, error } = await supabase!.storage
         .from("health-attachments")
         .download(item.file_path);
-      if (error) throw new Error("Unable to download.");
-      const blobUrl = URL.createObjectURL(data);
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = item.file_name;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      if (error) throw new Error("Unable to open file.");
+      const blob = data.slice(0, data.size, item.mime_type);
+      const blobUrl = URL.createObjectURL(blob);
+      if (previewable && preview) preview.location.href = blobUrl;
+      else {
+        preview?.close();
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = item.file_name;
+        link.click();
+      }
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to download.");
+      preview?.close();
+      setError(cause instanceof Error ? cause.message : "Unable to open file.");
     } finally {
       setLoading(false);
     }
@@ -117,12 +135,12 @@ function AttachmentItem({
       <div className="attachment-actions">
         <button
           className="button secondary-button"
-          onClick={download}
+          onClick={open}
           disabled={loading}
-          aria-label={`Download ${item.file_name}`}
+          aria-label={`${previewable ? "Open" : "Download"} ${item.file_name}`}
         >
-          <Download size={16} />
-          {loading ? "Downloading…" : "Download"}
+          {previewable ? <ExternalLink size={16} /> : <Download size={16} />}
+          {loading ? "Opening…" : previewable ? "Open" : "Download"}
         </button>
       </div>
       {isImage && (

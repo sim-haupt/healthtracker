@@ -7,6 +7,7 @@ import {
   ArrowUpRight,
   CalendarDays,
   Download,
+  ExternalLink,
   FileImage,
   FileText,
   FolderOpen,
@@ -50,8 +51,9 @@ function DocumentCard({ item }: { item: HealthDocument }) {
     if (opening) return;
     const previewable =
       file.mime_type.startsWith("image/") ||
+      file.mime_type.startsWith("text/") ||
       file.mime_type === "application/pdf";
-    const preview = previewable ? window.open("", "_blank") : null;
+    const preview = previewable ? window.open("about:blank", "_blank") : null;
     if (preview) preview.opener = null;
     setOpening(file.id);
     setError("");
@@ -61,7 +63,11 @@ function DocumentCard({ item }: { item: HealthDocument }) {
         .download(file.file_path);
       if (storageError)
         throw new Error("This private file could not be opened. Please retry.");
-      const url = URL.createObjectURL(data);
+      // Storage responses may use application/octet-stream, which makes the
+      // browser download otherwise previewable files. The stored MIME type is
+      // validated during upload, so use it for the local preview URL.
+      const previewBlob = data.slice(0, data.size, file.mime_type);
+      const url = URL.createObjectURL(previewBlob);
       if (previewable && preview) preview.location.href = url;
       else {
         preview?.close();
@@ -129,7 +135,9 @@ function DocumentCard({ item }: { item: HealthDocument }) {
           {files.map((file) => {
             const previewable =
               file.mime_type.startsWith("image/") ||
+              file.mime_type.startsWith("text/") ||
               file.mime_type === "application/pdf";
+            const ActionIcon = previewable ? ExternalLink : Download;
             return (
               <button
                 className="button secondary-button document-file-button"
@@ -138,7 +146,7 @@ function DocumentCard({ item }: { item: HealthDocument }) {
                 key={file.id}
                 title={file.file_name}
               >
-                <Download size={16} />
+                <ActionIcon size={16} />
                 <span>{file.file_name}</span>
                 <small>
                   {opening === file.id
