@@ -30,6 +30,7 @@ export function DocumentFormFields({
   multiple = false,
   onTagBusyChange,
   fileInputKey,
+  emptyFileLabel,
 }: {
   idPrefix: string;
   documentType: DocumentCategory;
@@ -48,6 +49,7 @@ export function DocumentFormFields({
   multiple?: boolean;
   onTagBusyChange: (busy: boolean) => void;
   fileInputKey?: number;
+  emptyFileLabel?: string;
 }) {
   const typeId = `${idPrefix}-type`;
   const descriptionId = `${idPrefix}-description`;
@@ -96,8 +98,8 @@ export function DocumentFormFields({
             {multiple
               ? files?.length
                 ? `${files.length} file${files.length === 1 ? "" : "s"} selected`
-                : "Choose files"
-              : (file?.name ?? "Choose file")}
+                : (emptyFileLabel ?? "Choose files")
+              : (file?.name ?? emptyFileLabel ?? "Choose file")}
           </span>
         </label>
         <input

@@ -101,7 +101,9 @@ function RouteDataProviders({
     ])
   )
     content = <TrackerProvider>{content}</TrackerProvider>;
-  if (matches(["/timeline", "/calendar", "/events", "/providers"]))
+  if (
+    matches(["/timeline", "/calendar", "/events", "/documents", "/providers"])
+  )
     content = <ProvidersProvider>{content}</ProvidersProvider>;
   return content;
 }

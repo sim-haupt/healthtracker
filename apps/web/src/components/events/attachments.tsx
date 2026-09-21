@@ -7,7 +7,6 @@ import { type Attachment } from "@/lib/attachments";
 import { categoryLabel, documentTitle } from "@/lib/documents";
 import { DocumentCategoryPill } from "../ui/labels";
 import { RichTextContent } from "../ui/rich-text";
-import { DocumentEditButton } from "../document-editor";
 
 function AttachmentItem({
   item,
@@ -299,10 +298,6 @@ export function EventAttachments({
                           documentTitle(files[0])
                         )}
                       </div>
-                      <DocumentEditButton
-                        document={files[0]}
-                        onUpdated={load}
-                      />
                     </div>
                     <ul className="attachment-list">
                       {files.map((item) => (

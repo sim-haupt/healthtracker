@@ -282,6 +282,54 @@ test("private attachments enforce database and Storage isolation and upload cons
         1,
       );
       assert.equal((await documents({ tag_ids: [uid(999)] })).total, 0);
+      await db.query("insert into public.tags(id,name) values($1,'Edited')", [
+        uid(42),
+      ]);
+      const updatedDocument = (
+        await db.query(
+          "select public.update_health_document($1,$2) as updated",
+          [
+            (
+              await db.query(
+                "select document_group_id from public.attachments where id=$1",
+                [uid(21)],
+              )
+            ).rows[0].document_group_id,
+            {
+              event_id: uid(11),
+              document_category: "invoice",
+              description: "Edited document",
+              provider_id: uid(40),
+              tag_ids: [uid(42)],
+            },
+          ],
+        )
+      ).rows[0].updated;
+      assert.equal(updatedDocument, true);
+      assert.deepEqual(
+        (
+          await db.query(
+            "select document_category,description,provider_id from public.attachments where id=$1",
+            [uid(21)],
+          )
+        ).rows,
+        [
+          {
+            document_category: "invoice",
+            description: "Edited document",
+            provider_id: uid(40),
+          },
+        ],
+      );
+      assert.deepEqual(
+        (
+          await db.query(
+            "select tag_id from public.health_event_tags where event_id=$1",
+            [uid(11)],
+          )
+        ).rows,
+        [{ tag_id: uid(42) }],
+      );
       await db.query(
         "insert into public.attachments(id,health_event_id,file_name,file_path,mime_type,file_size) values($1,$2,'pending.pdf',$3,'application/pdf',123)",
         [uid(22), uid(11), `${uid(1)}/${uid(11)}/${uid(22)}`],
