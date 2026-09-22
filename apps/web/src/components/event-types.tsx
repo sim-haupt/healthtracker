@@ -95,9 +95,12 @@ export function EventTypeBadge({ type }: { type: string }) {
   const Icon = eventTypeIcon(type, value.name);
   return (
     <span className="event-type-badge" style={value.style}>
-      <span className="event-type-icon" aria-hidden="true">
-        <Icon size={13} strokeWidth={2.2} />
-      </span>
+      <Icon
+        className="event-type-icon"
+        size={13}
+        strokeWidth={2.2}
+        aria-hidden="true"
+      />
       <span className="event-type-name">{value.name}</span>
     </span>
   );

@@ -5115,8 +5115,12 @@ h3 {
 .event-type-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0;
+  gap: 5px;
+  min-height: 24px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--event-color);
+  color: color-mix(in srgb, var(--event-color) 20%, white);
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: none;
@@ -5124,23 +5128,11 @@ h3 {
   white-space: nowrap;
 }
 .event-type-icon {
-  display: inline-grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
   flex-shrink: 0;
-  border-radius: 50%;
-  background: var(--event-color);
-  color: color-mix(in srgb, var(--event-color) 22%, white);
+  color: currentColor;
 }
 .event-type-name {
-  display: inline-flex;
-  align-items: center;
-  min-height: 22px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--event-color);
-  color: color-mix(in srgb, var(--event-color) 20%, white);
+  line-height: 1.25;
 }
 .event-type-settings {
   margin-top: 24px;
@@ -6812,7 +6804,7 @@ h3 {
   padding: 12px 0;
 }
 .dashboard-event-list .event-type-badge {
-  flex: 0 0 auto;
+  justify-self: start;
 }
 .dashboard-item-copy {
   display: grid;

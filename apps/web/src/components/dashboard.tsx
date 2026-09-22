@@ -59,8 +59,8 @@ function DashboardEventList({
       {events.slice(0, 3).map((event) => (
         <li key={event.id}>
           <Link href={"/events/" + event.id}>
-            <EventTypeBadge type={event.event_type} />
             <span className="dashboard-item-copy">
+              <EventTypeBadge type={event.event_type} />
               <strong>{eventDisplayTitle(event)}</strong>
               <time dateTime={event.event_date}>
                 {formatDate(event.event_date)}
