@@ -1,7 +1,7 @@
 "use client";
 import { EventTypeBadge } from "../event-types";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   History,
   Layers,
@@ -43,6 +43,15 @@ const icons: Record<string, typeof Activity> = {
 export function TimelineEntry({ item }: { item: TimelineItem }) {
   const episode = item.entry_type === "episode";
   const document = item.entry_type === "document";
+  const [past, setPast] = useState(false);
+  useEffect(() => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    setPast(
+      item.entry_type === "event" &&
+        new Date(item.occurred_at).getTime() < startOfToday.getTime(),
+    );
+  }, [item.entry_type, item.occurred_at]);
   const Icon = document
     ? FileText
     : episode
@@ -54,7 +63,7 @@ export function TimelineEntry({ item }: { item: TimelineItem }) {
         <Icon size={18} />
       </span>
       <Link
-        className="card timeline-entry"
+        className={`card timeline-entry${past ? " timeline-entry-past" : ""}`}
         href={
           episode ? `/episodes/${item.event_id}` : `/events/${item.event_id}`
         }
