@@ -5120,7 +5120,7 @@ h3 {
   padding: 3px 9px;
   border-radius: 999px;
   background: var(--event-color);
-  color: color-mix(in srgb, var(--event-color) 20%, white);
+  color: white;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: none;
@@ -7326,9 +7326,9 @@ h3 {
 }
 
 .timeline-entry.timeline-entry-past {
-  background: color-mix(in srgb, var(--surface-tint) 78%, white);
-  border-color: color-mix(in srgb, var(--line) 58%, white);
+  background: color-mix(in srgb, var(--surface-tint) 22%, white);
 }
 .timeline-entry.timeline-entry-past:hover {
-  background: color-mix(in srgb, var(--surface-tint) 92%, white);
+  background: var(--surface-tint);
+  border-color: var(--control-border);
 }
