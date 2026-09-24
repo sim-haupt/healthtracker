@@ -5115,9 +5115,9 @@ h3 {
 .event-type-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  min-height: 22px;
-  padding: 3px 8px;
+  gap: 5px;
+  min-height: 24px;
+  padding: 3px 8px 3px 3px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--event-color) 30%, white);
   color: color-mix(in srgb, var(--event-color) 64%, #263238);
@@ -5129,8 +5129,18 @@ h3 {
   white-space: nowrap;
 }
 .event-type-icon {
-  flex-shrink: 0;
-  color: currentColor;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--event-color) 78%, #263238);
+  color: white;
+}
+.event-type-icon svg {
+  width: 11px;
+  height: 11px;
   stroke-width: 2.6;
 }
 .event-type-name {
