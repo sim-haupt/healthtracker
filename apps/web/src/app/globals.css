@@ -7334,3 +7334,28 @@ h3 {
   background: var(--surface-tint);
   border-color: var(--control-border);
 }
+.timeline-entry-has-indicators .timeline-kind {
+  padding-right: 68px;
+}
+.timeline-entry-indicators {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  right: 18px;
+  display: flex;
+  gap: 6px;
+}
+.timeline-entry-indicator {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: white;
+  color: var(--deep);
+}
+.timeline-entry-indicator:hover {
+  border-color: var(--control-border);
+  background: var(--surface-tint);
+}

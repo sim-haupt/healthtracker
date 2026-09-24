@@ -15,6 +15,7 @@ import {
   Activity,
   ArrowUpRight,
   FileText,
+  Paperclip,
 } from "lucide-react";
 import { TrackerFiltersBar, useTrackerQuery } from "./filters";
 import { useTrackerResults } from "./use-results";
@@ -54,16 +55,19 @@ export function TimelineEntry({ item }: { item: TimelineItem }) {
   }, [item.entry_type, item.occurred_at]);
   const Icon = document
     ? FileText
-    : episode
-      ? Layers
-      : (icons[item.event_type] ?? Activity);
+      : episode
+        ? Layers
+        : (icons[item.event_type] ?? Activity);
+  const hasIndicators =
+    item.entry_type === "event" &&
+    (item.has_attachments || item.related_event_id);
   return (
     <li className="timeline-item">
       <span className="timeline-marker" aria-hidden>
         <Icon size={18} />
       </span>
       <Link
-        className={`card timeline-entry${past ? " timeline-entry-past" : ""}`}
+        className={`card timeline-entry${past ? " timeline-entry-past" : ""}${hasIndicators ? " timeline-entry-has-indicators" : ""}`}
         href={
           episode ? `/episodes/${item.event_id}` : `/events/${item.event_id}`
         }
@@ -86,16 +90,29 @@ export function TimelineEntry({ item }: { item: TimelineItem }) {
           <ArrowUpRight size={17} aria-hidden />
         </h3>
       </Link>
-      {item.related_event_id && (
-        <Link
-          className="timeline-related-link"
-          href={`/events/${item.related_event_id}`}
-          aria-label="View related doctor visit"
-          title="View related doctor visit"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <Stethoscope size={15} aria-hidden="true" />
-        </Link>
+      {hasIndicators && (
+        <div className="timeline-entry-indicators">
+          {item.has_attachments && (
+            <Link
+              className="timeline-entry-indicator"
+              href={`/events/${item.event_id}#documents-title`}
+              aria-label="View attached files"
+              title="View attached files"
+            >
+              <Paperclip size={14} aria-hidden="true" />
+            </Link>
+          )}
+          {item.related_event_id && (
+            <Link
+              className="timeline-entry-indicator"
+              href={`/events/${item.related_event_id}`}
+              aria-label="View related doctor visit"
+              title="View related doctor visit"
+            >
+              <Stethoscope size={14} aria-hidden="true" />
+            </Link>
+          )}
+        </div>
       )}
     </li>
   );

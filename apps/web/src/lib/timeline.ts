@@ -10,6 +10,7 @@ export type TimelineItem = {
   occurred_at: string;
   summary: string;
   related_event_id?: string | null;
+  has_attachments?: boolean;
   tags: Label[];
   category: Label | null;
   document_category?: string | null;

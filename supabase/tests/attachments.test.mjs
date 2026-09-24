@@ -189,6 +189,7 @@ test("private attachments enforce database and Storage isolation and upload cons
       assert.equal(all.total, 1);
       assert.equal(all.items[0].entry_type, "event");
       assert.equal(all.items[0].summary, "Short summary");
+      assert.equal(all.items[0].has_attachments, true);
       const first = await timeline({ page: 1, page_size: 1 }),
         second = await timeline({ page: 2, page_size: 1 });
       assert.equal(first.total, 1);
