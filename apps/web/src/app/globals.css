@@ -5115,14 +5115,15 @@ h3 {
 .event-type-badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  min-height: 24px;
-  padding: 3px 9px;
+  gap: 4px;
+  min-height: 22px;
+  padding: 3px 8px;
   border-radius: 999px;
-  background: var(--event-color);
-  color: white;
-  font-size: 0.75rem;
-  font-weight: 600;
+  background: color-mix(in srgb, var(--event-color) 30%, white);
+  color: color-mix(in srgb, var(--event-color) 64%, #263238);
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1;
   text-transform: none;
   letter-spacing: 0;
   white-space: nowrap;
@@ -5130,6 +5131,7 @@ h3 {
 .event-type-icon {
   flex-shrink: 0;
   color: currentColor;
+  stroke-width: 2.6;
 }
 .event-type-name {
   line-height: 1.25;
