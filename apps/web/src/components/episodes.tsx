@@ -10,8 +10,6 @@ import {
   ChevronDown,
   ArrowUpRight,
   FileText,
-  Activity,
-  Check,
   Search,
   X,
 } from "lucide-react";
@@ -50,14 +48,8 @@ export type Episode = {
 };
 
 function EpisodeStatusPill({ status }: { status: Episode["status"] }) {
-  const Icon = status === "active" ? Activity : Check;
   return (
-    <span className={`status-pill episode-status-${status}`}>
-      <span className="episode-status-icon" aria-hidden="true">
-        <Icon size={11} strokeWidth={2.7} />
-      </span>
-      <span>{status}</span>
-    </span>
+    <span className={`status-pill episode-status-${status}`}>{status}</span>
   );
 }
 

@@ -5365,9 +5365,8 @@ h3 {
 .episode-status-active,
 .episode-status-resolved {
   align-items: center;
-  gap: 5px;
   min-height: 24px;
-  padding: 3px 8px 3px 3px;
+  padding: 4px 9px;
   border: 0;
   background: color-mix(in srgb, var(--episode-status-color) 30%, white);
   color: color-mix(in srgb, var(--episode-status-color) 64%, #263238);
@@ -5380,25 +5379,6 @@ h3 {
 }
 .episode-status-resolved {
   --episode-status-color: #3f875f;
-}
-.episode-status-icon {
-  position: relative;
-  display: inline-block;
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--episode-status-color) 78%, #263238);
-  color: white;
-}
-.episode-status-icon svg {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  display: block;
-  width: 11px;
-  height: 11px;
-  transform: translate(-50%, -50%);
 }
 .episode-profile-grid {
   display: grid;
