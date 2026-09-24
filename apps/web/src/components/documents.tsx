@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowUpRight,
   CalendarDays,
   Download,
   ExternalLink,
@@ -120,6 +121,13 @@ function DocumentCard({
           ) : (
             documentTitle(item)
           )}
+        </div>
+        <div className="document-related-event">
+          <span>Related event</span>
+          <Link className="text-link" href={`/events/${item.health_event_id}`}>
+            {item.event_title}
+            <ArrowUpRight size={15} />
+          </Link>
         </div>
         {item.provider && (
           <Link

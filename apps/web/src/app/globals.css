@@ -2029,6 +2029,24 @@ h3 {
   margin-top: 12px;
   overflow-wrap: anywhere;
 }
+.document-related-event {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px 9px;
+  margin-top: 10px;
+  font-size: 0.8rem;
+}
+.document-related-event > span {
+  color: var(--muted);
+}
+.document-related-event .text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .document-file-actions {
   display: flex;
   flex-wrap: wrap;
