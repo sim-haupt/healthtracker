@@ -10,6 +10,8 @@ import {
   ChevronDown,
   ArrowUpRight,
   FileText,
+  Activity,
+  Check,
   Search,
   X,
 } from "lucide-react";
@@ -46,6 +48,18 @@ export type Episode = {
   events: EventSummary[];
   documents?: HealthDocument[];
 };
+
+function EpisodeStatusPill({ status }: { status: Episode["status"] }) {
+  const Icon = status === "active" ? Activity : Check;
+  return (
+    <span className={`status-pill episode-status-${status}`}>
+      <span className="episode-status-icon" aria-hidden="true">
+        <Icon size={11} strokeWidth={2.7} />
+      </span>
+      <span>{status}</span>
+    </span>
+  );
+}
 
 function EpisodeFormSection({
   number,
@@ -122,9 +136,7 @@ export function EpisodeOverview({ profileId }: { profileId: string }) {
                 <Link href={`/episodes/${e.id}`}>
                   <strong>{e.title}</strong>
                   <span className="episode-list-meta">
-                    <span className={`status-pill episode-status-${e.status}`}>
-                      {e.status}
-                    </span>
+                    <EpisodeStatusPill status={e.status} />
                     <span>{formatDate(e.start_date)}</span>
                   </span>
                 </Link>
@@ -598,9 +610,7 @@ function EpisodeAccordionCard({ episode }: { episode: Episode }) {
         <div className="episode-card-title">
           <strong>{episode.title}</strong>
           <span className="episode-list-meta">
-            <span className={`status-pill episode-status-${episode.status}`}>
-              {episode.status}
-            </span>
+            <EpisodeStatusPill status={episode.status} />
           </span>
         </div>
         <div className="episode-card-range">
@@ -725,9 +735,7 @@ export function EpisodesPage({ id }: { id?: string }) {
         <>
           <section className="card basic-information">
             <div className="document-meta">
-              <span className={`status-pill episode-status-${episode.status}`}>
-                {episode.status}
-              </span>
+              <EpisodeStatusPill status={episode.status} />
               {(() => {
                 const profile = profiles.find(
                   (p) => p.id === episode.profile_id,
