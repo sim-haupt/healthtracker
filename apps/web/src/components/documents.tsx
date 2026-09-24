@@ -1,10 +1,8 @@
 "use client";
-import { EventTypeBadge } from "./event-types";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowUpRight,
   CalendarDays,
   Download,
   ExternalLink,
@@ -17,7 +15,6 @@ import { DocumentUpload } from "./document-upload";
 import { useTracker } from "./tracker/context";
 import { useTrackerResults, type EventResults } from "./tracker/use-results";
 import { ErrorState, LoadingState } from "./ui/feedback";
-import { ProfileIdentity } from "./ui/profile-avatar";
 import { DocumentCategoryPill, TagFilterPills, TagPill } from "./ui/labels";
 import { RichTextContent } from "./ui/rich-text";
 import { supabase } from "@/lib/supabase";
@@ -35,7 +32,6 @@ import {
   documentFileTypes,
   documentFilterQuery,
   emptyDocumentFilters,
-  fileKind,
   type DocumentFilters,
   type HealthDocument,
 } from "@/lib/documents";
@@ -54,7 +50,6 @@ function DocumentCard({
   const { profiles } = useProfiles();
   const [opening, setOpening] = useState("");
   const [error, setError] = useState("");
-  const profile = profiles.find((entry) => entry.id === item.profile_id);
   const files = item.files?.length ? item.files : [item];
 
   async function open(file: (typeof files)[number]) {
@@ -104,13 +99,20 @@ function DocumentCard({
       <div className="document-icon" aria-hidden>
         <Icon size={25} />
       </div>
+      <DocumentEditButton
+        document={item}
+        events={events}
+        profiles={profiles}
+        iconOnly
+        onUpdated={onUpdated}
+      />
       <div className="document-body">
+        <div className="document-date">
+          <CalendarDays size={15} />
+          <span>{formatDate(item.created_at)}</span>
+        </div>
         <div className="document-meta">
           <DocumentCategoryPill name={categoryLabel(item.document_category)} />
-          <span>
-            {files.length === 1 ? fileKind(files[0]) : `${files.length} files`}
-          </span>
-          <span>{(item.file_size / 1024 / 1024).toFixed(2)} MB</span>
         </div>
         <div className="document-title" role="heading" aria-level={2}>
           {item.description ? (
@@ -119,19 +121,38 @@ function DocumentCard({
             documentTitle(item)
           )}
         </div>
-        <div className="document-context">
-          <ProfileIdentity
-            name={profile?.name ?? "Health profile"}
-            avatar={profile?.avatar}
-          />
-          <span>
-            <CalendarDays size={15} /> Uploaded {formatDate(item.created_at)}
-          </span>
-          {item.provider && (
-            <Link className="text-link" href={`/providers/${item.provider.id}`}>
-              {item.provider.name}
-            </Link>
-          )}
+        {item.provider && (
+          <Link
+            className="text-link document-provider"
+            href={`/providers/${item.provider.id}`}
+          >
+            {item.provider.name}
+          </Link>
+        )}
+        <div className="document-file-actions">
+          {files.map((file) => {
+            const previewable =
+              file.mime_type.startsWith("image/") ||
+              file.mime_type.startsWith("text/") ||
+              file.mime_type === "application/pdf";
+            const ActionIcon = previewable ? ExternalLink : Download;
+            return (
+              <a
+                className="text-link document-file-link"
+                href={`#document-file-${file.id}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void open(file);
+                }}
+                aria-disabled={!!opening}
+                key={file.id}
+                title={file.file_name}
+              >
+                <ActionIcon size={15} />
+                <span>{opening === file.id ? "Opening…" : file.file_name}</span>
+              </a>
+            );
+          })}
         </div>
         {item.tags.length > 0 && (
           <div className="event-labels">
@@ -145,49 +166,6 @@ function DocumentCard({
             {error}
           </p>
         )}
-      </div>
-      <div className="document-actions">
-        <DocumentEditButton
-          document={item}
-          events={events}
-          profiles={profiles}
-          onUpdated={onUpdated}
-        />
-        <div className="document-file-actions">
-          {files.map((file) => {
-            const previewable =
-              file.mime_type.startsWith("image/") ||
-              file.mime_type.startsWith("text/") ||
-              file.mime_type === "application/pdf";
-            const ActionIcon = previewable ? ExternalLink : Download;
-            return (
-              <button
-                className="button secondary-button document-file-button"
-                onClick={() => open(file)}
-                disabled={!!opening}
-                key={file.id}
-                title={file.file_name}
-              >
-                <ActionIcon size={16} />
-                <span>{file.file_name}</span>
-                <small>
-                  {opening === file.id
-                    ? "Opening…"
-                    : previewable
-                      ? "Open"
-                      : "Download"}
-                </small>
-              </button>
-            );
-          })}
-        </div>
-        <Link className="text-link" href={`/events/${item.health_event_id}`}>
-          {item.event_title}
-          <ArrowUpRight size={16} />
-        </Link>
-        <span className="document-event-type">
-          <EventTypeBadge type={item.event_type} />
-        </span>
       </div>
     </article>
   );

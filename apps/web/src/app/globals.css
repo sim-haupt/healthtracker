@@ -1964,6 +1964,7 @@ h3 {
   gap: 16px;
 }
 .document-card {
+  position: relative;
   padding: 22px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -1981,6 +1982,7 @@ h3 {
 }
 .document-body {
   min-width: 0;
+  padding-right: 38px;
 }
 .document-body h2,
 .document-title {
@@ -2003,8 +2005,8 @@ h3 {
   margin-top: 8px;
   overflow-wrap: anywhere;
 }
-.document-meta,
-.document-context {
+.document-date,
+.document-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2012,58 +2014,48 @@ h3 {
   color: var(--muted);
   font-size: 0.75rem;
 }
+.document-date {
+  gap: 6px;
+}
+.document-meta {
+  margin-top: 10px;
+}
 .document-meta .category-pill {
   text-transform: capitalize;
 }
-.document-context {
-  margin-top: 14px;
-}
-.document-context > span {
+.document-provider {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-}
-.document-context .avatar {
-  width: 24px;
-  height: 24px;
-  font-size: 0.6rem;
-}
-.document-actions {
-  grid-column: 1 / -1;
-  border-top: 1px solid var(--line);
-  padding-top: 15px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  margin-top: 12px;
+  overflow-wrap: anywhere;
 }
 .document-file-actions {
   display: flex;
-  flex: 1 1 auto;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 7px 16px;
+  margin-top: 12px;
 }
-.document-file-button {
-  max-width: min(100%, 290px);
+.document-file-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
 }
-.document-file-button > span {
+.document-file-link > span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.document-file-button small {
-  color: var(--muted);
-  font-size: 0.7rem;
+.document-file-link[aria-disabled="true"] {
+  pointer-events: none;
+  opacity: 0.55;
 }
-.document-actions .text-link {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.document-event-type {
-  color: var(--muted);
-  font-size: 0.75rem;
-  margin-left: auto;
-  text-align: right;
+.document-edit-trigger {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1;
 }
 .document-advanced-filters {
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2080,15 +2072,8 @@ h3 {
   .document-card {
     padding: 18px;
   }
-  .document-actions {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-  .document-actions .button {
-    width: 100%;
-  }
-  .document-event-type {
-    margin-left: 0;
+  .document-body {
+    padding-right: 34px;
   }
   .document-advanced-filters {
     grid-template-columns: 1fr;

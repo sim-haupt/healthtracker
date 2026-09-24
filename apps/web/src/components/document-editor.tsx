@@ -31,6 +31,7 @@ export function DocumentEditButton({
   profiles,
   hideTrigger = false,
   openOnMount = false,
+  iconOnly = false,
   onUpdated,
 }: {
   document: HealthDocument;
@@ -38,6 +39,7 @@ export function DocumentEditButton({
   profiles: HealthProfile[];
   hideTrigger?: boolean;
   openOnMount?: boolean;
+  iconOnly?: boolean;
   onUpdated: () => void;
 }) {
   const toast = useToast();
@@ -234,10 +236,17 @@ export function DocumentEditButton({
       {!hideTrigger && (
         <button
           type="button"
-          className="button secondary-button"
+          className={
+            iconOnly
+              ? "icon-button document-edit-trigger"
+              : "button secondary-button"
+          }
           onClick={beginEdit}
+          aria-label={iconOnly ? "Edit document" : undefined}
+          title={iconOnly ? "Edit document" : undefined}
         >
-          <Pencil size={16} /> Edit
+          <Pencil size={16} />
+          {!iconOnly && "Edit"}
         </button>
       )}
       <dialog
