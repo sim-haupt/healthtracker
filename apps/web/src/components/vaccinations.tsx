@@ -5,7 +5,6 @@ import { Syringe, Plus, ArrowUpRight } from "lucide-react";
 import { useProfiles } from "./app-shell";
 import { useTracker } from "./tracker/context";
 import { TagFilterPills } from "./ui/labels";
-import { ProfileIdentity } from "./ui/profile-avatar";
 import { useTrackerResults, type EventResults } from "./tracker/use-results";
 import { LoadingState, ErrorState } from "./ui/feedback";
 import { eventDisplayTitle } from "@/lib/events";
@@ -14,7 +13,6 @@ import { FilterBar } from "./ui/filter-bar";
 import { ProfileColumns } from "./ui/profile-columns";
 function History({ query }: { query: Record<string, unknown> }) {
   const [page, setPage] = useState(1);
-  const { profiles } = useProfiles();
   const { data, error, retry } = useTrackerResults<EventResults>(
     "/api/v1/events/search",
     { ...query, event_type: "Vaccination", page, page_size: 30 },
@@ -54,16 +52,6 @@ function History({ query }: { query: Record<string, unknown> }) {
               </span>
               <div>
                 <div className="vaccination-card-meta">
-                  <ProfileIdentity
-                    className="eyebrow"
-                    name={
-                      profiles.find((p) => p.id === event.profile_id)?.name ??
-                      "Health profile"
-                    }
-                    avatar={
-                      profiles.find((p) => p.id === event.profile_id)?.avatar
-                    }
-                  />
                   <time dateTime={event.event_date}>
                     {formatDate(event.event_date)}
                   </time>
