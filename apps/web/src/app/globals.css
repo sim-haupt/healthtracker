@@ -5129,8 +5129,8 @@ h3 {
   white-space: nowrap;
 }
 .event-type-icon {
-  display: inline-grid;
-  place-items: center;
+  position: relative;
+  display: inline-block;
   width: 18px;
   height: 18px;
   flex: 0 0 18px;
@@ -5139,9 +5139,14 @@ h3 {
   color: white;
 }
 .event-type-icon svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
   width: 11px;
   height: 11px;
   stroke-width: 2.6;
+  transform: translate(-50%, -50%);
 }
 .event-type-name {
   line-height: 1.25;
@@ -6833,7 +6838,7 @@ h3 {
   white-space: nowrap;
 }
 .dashboard-item-copy time,
-.dashboard-item-copy > span {
+.dashboard-item-copy > span:not(.event-type-badge) {
   color: var(--muted);
   font-size: 0.725rem;
   line-height: 1.35;
