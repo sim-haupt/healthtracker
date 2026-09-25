@@ -449,6 +449,9 @@ const german: Record<string, string> = {
   "Related appointments": "Zugehörige Termine",
   "Record vaccination": "Impfung erfassen",
   "Record a vaccination": "Impfung erfassen",
+  "Group dose series": "Impfdosen gruppieren",
+  "Next dose:": "Nächste Dosis:",
+  "Renewal date:": "Auffrischungsdatum:",
   "Change photo": "Foto ändern",
   "Remove photo": "Foto entfernen",
   "Delete photo": "Foto löschen",
@@ -538,6 +541,8 @@ function translateDynamic(value: string, locale: AppLocale) {
       ? [
           [/^(\d+) entries$/, (m) => `${m[1]} Einträge`],
           [/^(\d+) events$/, (m) => `${m[1]} Ereignisse`],
+          [/^(\d+) vaccination$/, (m) => `${m[1]} Impfung`],
+          [/^(\d+) vaccinations$/, (m) => `${m[1]} Impfungen`],
           [/^Uploaded (.+)$/, (m) => `Hochgeladen ${m[1]}`],
           [/^Last updated (.+)$/, (m) => `Zuletzt aktualisiert ${m[1]}`],
           [/^Attached to (.+)$/, (m) => `Verknüpft mit ${m[1]}`],
@@ -550,6 +555,8 @@ function translateDynamic(value: string, locale: AppLocale) {
       : [
           [/^(\d+) Einträge$/, (m) => `${m[1]} entries`],
           [/^(\d+) Ereignisse$/, (m) => `${m[1]} events`],
+          [/^(\d+) Impfung$/, (m) => `${m[1]} vaccination`],
+          [/^(\d+) Impfungen$/, (m) => `${m[1]} vaccinations`],
           [/^Hochgeladen (.+)$/, (m) => `Uploaded ${m[1]}`],
           [/^Zuletzt aktualisiert (.+)$/, (m) => `Last updated ${m[1]}`],
           [/^Verknüpft mit (.+)$/, (m) => `Attached to ${m[1]}`],

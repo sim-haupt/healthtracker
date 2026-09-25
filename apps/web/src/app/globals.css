@@ -4321,7 +4321,19 @@ select:disabled {
   font-size: 0.9rem;
 }
 .vaccination-count {
+  margin: 0;
+}
+.vaccination-list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
   margin-bottom: 18px;
+}
+.vaccination-group-toggle[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--teal) 45%, var(--line));
+  background: var(--surface-tint);
+  color: var(--deep);
 }
 .vaccination-history {
   list-style: none;
@@ -4333,6 +4345,67 @@ select:disabled {
 }
 .vaccination-record {
   padding: 0;
+}
+.vaccination-series {
+  padding: 0;
+  overflow: hidden;
+}
+.vaccination-series details {
+  height: 100%;
+}
+.vaccination-series summary {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px;
+  cursor: pointer;
+  list-style: none;
+}
+.vaccination-series summary::-webkit-details-marker {
+  display: none;
+}
+.vaccination-series summary:hover {
+  background: var(--surface-tint);
+}
+.vaccination-series details[open] summary {
+  border-bottom: 1px solid var(--line);
+}
+.vaccination-series-copy {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 4px;
+}
+.vaccination-series-copy > span,
+.vaccination-series-copy > small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.vaccination-series-copy > strong {
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+}
+.vaccination-series-chevron {
+  flex: 0 0 auto;
+  color: var(--muted);
+  transition: transform 160ms ease;
+}
+.vaccination-series details[open] .vaccination-series-chevron {
+  transform: rotate(180deg);
+}
+.vaccination-series-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+  list-style: none;
+  background: color-mix(in srgb, var(--surface-tint) 55%, white);
+}
+.vaccination-series-record {
+  box-shadow: none;
+}
+.vaccination-series-record .vaccination-card-link {
+  padding: 14px;
 }
 .vaccination-card-link {
   display: flex;
@@ -4400,6 +4473,13 @@ select:disabled {
   }
 }
 @media (max-width: 700px) {
+  .vaccination-list-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .vaccination-group-toggle {
+    width: 100%;
+  }
   .vaccination-history {
     grid-template-columns: 1fr;
   }
