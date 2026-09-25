@@ -634,8 +634,13 @@ export function ProviderDetail({ id }: { id: string }) {
               <Globe size={18} />
               <div>
                 <span>Website</span>
-                <a href={safeWebsite} target="_blank" rel="noopener noreferrer">
-                  {provider.website}
+                <a
+                  className="provider-website-link"
+                  href={safeWebsite}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span>{provider.website}</span>
                   <ArrowUpRight size={14} />
                 </a>
               </div>
