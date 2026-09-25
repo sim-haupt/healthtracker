@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowUpRight,
   CalendarDays,
   Download,
   ExternalLink,
@@ -27,6 +26,7 @@ import { ProfileColumns } from "./ui/profile-columns";
 import { eventDisplayTitle } from "@/lib/events";
 import type { EventSummary } from "@/lib/events";
 import { DocumentEditButton } from "./document-editor";
+import { EventTypeBadge } from "./event-types";
 import {
   categoryLabel,
   documentTitle,
@@ -111,6 +111,14 @@ function DocumentCard({
         <div className="document-date">
           <CalendarDays size={15} />
           <span>{formatDate(item.created_at)}</span>
+          {item.provider && (
+            <Link
+              className="text-link document-provider"
+              href={`/providers/${item.provider.id}`}
+            >
+              {item.provider.name}
+            </Link>
+          )}
         </div>
         <div className="document-meta">
           <DocumentCategoryPill name={categoryLabel(item.document_category)} />
@@ -122,21 +130,15 @@ function DocumentCard({
             documentTitle(item)
           )}
         </div>
-        <div className="document-related-event">
-          <span>Related event</span>
-          <Link className="text-link" href={`/events/${item.health_event_id}`}>
+        <Link
+          className="document-related-event"
+          href={`/events/${item.health_event_id}`}
+        >
+          <EventTypeBadge type={item.event_type} />
+          <span className="document-related-event-title">
             {item.event_title}
-            <ArrowUpRight size={15} />
-          </Link>
-        </div>
-        {item.provider && (
-          <Link
-            className="text-link document-provider"
-            href={`/providers/${item.provider.id}`}
-          >
-            {item.provider.name}
-          </Link>
-        )}
+          </span>
+        </Link>
         <div className="document-file-actions">
           {files.map((file) => {
             const previewable =

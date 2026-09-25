@@ -2015,7 +2015,7 @@ h3 {
   font-size: 0.75rem;
 }
 .document-date {
-  gap: 6px;
+  gap: 6px 12px;
 }
 .document-meta {
   margin-top: 10px;
@@ -2026,26 +2026,26 @@ h3 {
 .document-provider {
   display: inline-flex;
   align-items: center;
-  margin-top: 12px;
   overflow-wrap: anywhere;
 }
 .document-related-event {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 5px 9px;
-  margin-top: 10px;
-  font-size: 0.8rem;
-}
-.document-related-event > span {
-  color: var(--muted);
-}
-.document-related-event .text-link {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
+  max-width: 100%;
+  margin-top: 10px;
+  color: var(--teal);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.document-related-event-title {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.document-related-event:hover .document-related-event-title {
+  text-decoration: underline;
 }
 .document-file-actions {
   display: flex;
