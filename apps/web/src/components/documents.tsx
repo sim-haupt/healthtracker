@@ -9,6 +9,7 @@ import {
   FileImage,
   FileText,
   FolderOpen,
+  MapPin,
 } from "lucide-react";
 import { useProfiles } from "./app-shell";
 import { DocumentUpload } from "./document-upload";
@@ -108,20 +109,21 @@ function DocumentCard({
         onUpdated={onUpdated}
       />
       <div className="document-body">
-        <div className="document-date">
-          <CalendarDays size={15} />
-          <span>{formatDate(item.created_at)}</span>
+        <div className="document-card-topline">
+          <DocumentCategoryPill name={categoryLabel(item.document_category)} />
+          <span className="document-date">
+            <CalendarDays size={15} />
+            <span>{formatDate(item.created_at)}</span>
+          </span>
           {item.provider && (
             <Link
               className="text-link document-provider"
               href={`/providers/${item.provider.id}`}
             >
+              <MapPin size={14} aria-hidden="true" />
               {item.provider.name}
             </Link>
           )}
-        </div>
-        <div className="document-meta">
-          <DocumentCategoryPill name={categoryLabel(item.document_category)} />
         </div>
         <div className="document-title" role="heading" aria-level={2}>
           {item.description ? (

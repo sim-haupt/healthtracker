@@ -2005,7 +2005,14 @@ h3 {
   margin-top: 8px;
   overflow-wrap: anywhere;
 }
-.document-date,
+.document-card-topline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 13px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
 .document-meta {
   display: flex;
   flex-wrap: wrap;
@@ -2015,17 +2022,17 @@ h3 {
   font-size: 0.75rem;
 }
 .document-date {
-  gap: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
-.document-meta {
-  margin-top: 10px;
-}
-.document-meta .category-pill {
+.document-card-topline .category-pill {
   text-transform: capitalize;
 }
 .document-provider {
   display: inline-flex;
   align-items: center;
+  gap: 5px;
   overflow-wrap: anywhere;
 }
 .document-related-event {
