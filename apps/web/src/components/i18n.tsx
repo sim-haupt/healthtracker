@@ -575,12 +575,18 @@ export function translate(value: string, locale: AppLocale) {
   return exact ?? translateDynamic(value, locale);
 }
 
+const translationExcluded =
+  "script,style,[data-no-translate],.rich-text-content";
+const editableContent =
+  "input,textarea,select,[contenteditable],.rich-text-surface";
+
 function translateNode(node: Node, locale: AppLocale) {
   if (node.nodeType === Node.TEXT_NODE) {
     const parent = node.parentElement;
     if (
       !parent ||
-      parent.closest("script,style,[data-no-translate],.rich-text-content")
+      parent.closest(translationExcluded) ||
+      parent.closest(editableContent)
     )
       return;
     const raw = node.textContent ?? "";
@@ -592,14 +598,14 @@ function translateNode(node: Node, locale: AppLocale) {
     return;
   }
   if (!(node instanceof HTMLElement)) return;
-  if (node.matches("script,style,[data-no-translate],.rich-text-content"))
-    return;
+  if (node.matches(translationExcluded)) return;
   for (const attribute of ["placeholder", "title", "aria-label"] as const) {
     const value = node.getAttribute(attribute);
     if (!value) continue;
     const translated = translate(value, locale);
     if (translated !== value) node.setAttribute(attribute, translated);
   }
+  if (node.matches(editableContent)) return;
   node.childNodes.forEach((child) => translateNode(child, locale));
 }
 
