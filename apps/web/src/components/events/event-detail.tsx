@@ -33,6 +33,19 @@ type DetailSection = {
   icon: typeof FileText;
 };
 
+function eventDateLabel(value: string) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return formatDate(value);
+  const date = new Date(value);
+  if (
+    !Number.isNaN(date.getTime()) &&
+    date.getHours() === 0 &&
+    date.getMinutes() === 0 &&
+    date.getSeconds() === 0
+  )
+    return formatDate(date);
+  return dateLabel(value);
+}
+
 function detailSections(event: HealthEvent): DetailSection[] {
   const byType: Record<string, DetailSection[]> = {
     "Doctor Visit": [
@@ -307,7 +320,7 @@ export function EventDetail({ id }: { id: string }) {
             </dt>
             <dd>
               <time dateTime={event.event_date}>
-                {dateLabel(event.event_date)}
+                {eventDateLabel(event.event_date)}
               </time>
             </dd>
           </div>
@@ -316,7 +329,7 @@ export function EventDetail({ id }: { id: string }) {
               <dt>Until</dt>
               <dd>
                 <time dateTime={event.end_date}>
-                  {dateLabel(event.end_date)}
+                  {eventDateLabel(event.end_date)}
                 </time>
               </dd>
             </div>
